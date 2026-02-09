@@ -1,0 +1,8 @@
+.env
+log.md
+.DS_Store
+__pycache__/
+*.pyc
+screenshots/
+.omc/
+.claude/
