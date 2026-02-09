@@ -32,7 +32,7 @@ def main(path):
             return "Error: 현재 디렉토리 범위 밖에는 접근할 수 없습니다."
 
         # 차단 파일
-        if resolved.name in BLOCKED_FILES:
+        if resolved.name.lower() in BLOCKED_FILES:
             return f"Error: 보안상 읽을 수 없는 파일입니다: {resolved.name}"
 
         if not resolved.exists():

@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 import socket
 import requests
 from bs4 import BeautifulSoup
+import urllib3.util.connection
 
 SCHEMA = {
     "name": "web_fetch",
@@ -42,6 +43,25 @@ def _is_private_ip(hostname):
     return False
 
 
+def _resolve_hostname(hostname):
+    """호스트명을 IP로 해석하고 프라이빗 IP 차단. 안전한 IP 반환 또는 None."""
+    try:
+        infos = socket.getaddrinfo(hostname, None)
+    except socket.gaierror:
+        return None
+    for _, _, _, _, addr in infos:
+        try:
+            ip = ipaddress.ip_address(addr[0])
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                return None
+        except ValueError:
+            continue
+    # 첫 번째 유효한 IP 반환
+    if infos:
+        return infos[0][4][0]
+    return None
+
+
 def main(url, max_chars=3000):
     max_chars = max(100, min(int(max_chars), 50000))
     try:
@@ -52,34 +72,53 @@ def main(url, max_chars=3000):
         if not parsed.hostname:
             return "Error: 유효한 호스트명이 필요합니다."
 
-        # SSRF: 프라이빗 IP 차단
-        if _is_private_ip(parsed.hostname):
+        # SSRF: DNS 해석 + 프라이빗 IP 차단 (DNS 리바인딩 방지를 위해 IP 핀닝)
+        resolved_ip = _resolve_hostname(parsed.hostname)
+        if not resolved_ip:
             return "Error: 내부 네트워크 주소는 접근할 수 없습니다."
 
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         }
 
-        # 리다이렉트 수동 제어, 응답 크기 제한
-        response = requests.get(
-            url, headers=headers, timeout=10,
-            allow_redirects=False, stream=True,
-        )
+        # DNS 핀닝: 해석된 IP로 강제 연결 (DNS 리바인딩 공격 방지)
+        _orig_create_conn = urllib3.util.connection.create_connection
+        _pinned_hostname = parsed.hostname
+        _pinned_ip = resolved_ip
 
-        # 리다이렉트 처리 (최대 5회, 스킴+IP 검증)
-        redirects = 0
-        while response.is_redirect and redirects < 5:
-            redirect_url = response.headers.get("Location", "")
-            rp = urlparse(redirect_url)
-            if rp.scheme and rp.scheme not in ("http", "https"):
-                return "Error: 허용되지 않는 프로토콜로 리다이렉트됩니다."
-            if rp.hostname and _is_private_ip(rp.hostname):
-                return "Error: 리다이렉트 대상이 내부 네트워크 주소입니다."
+        def _pinned_create_connection(address, *args, **kwargs):
+            host, port = address
+            if host == _pinned_hostname:
+                return _orig_create_conn((_pinned_ip, port), *args, **kwargs)
+            return _orig_create_conn(address, *args, **kwargs)
+
+        urllib3.util.connection.create_connection = _pinned_create_connection
+        try:
+            # 리다이렉트 수동 제어, 응답 크기 제한
             response = requests.get(
-                redirect_url, headers=headers, timeout=10,
+                url, headers=headers, timeout=10,
                 allow_redirects=False, stream=True,
             )
-            redirects += 1
+
+            # 리다이렉트 처리 (최대 5회, 스킴+IP 검증)
+            redirects = 0
+            while response.is_redirect and redirects < 5:
+                redirect_url = response.headers.get("Location", "")
+                rp = urlparse(redirect_url)
+                if rp.scheme and rp.scheme not in ("http", "https"):
+                    return "Error: 허용되지 않는 프로토콜로 리다이렉트됩니다."
+                if rp.hostname and rp.hostname != _pinned_hostname:
+                    # 다른 호스트로 리다이렉트: 새로 DNS 해석 + 검증
+                    redirect_ip = _resolve_hostname(rp.hostname)
+                    if not redirect_ip:
+                        return "Error: 리다이렉트 대상이 내부 네트워크 주소입니다."
+                response = requests.get(
+                    redirect_url, headers=headers, timeout=10,
+                    allow_redirects=False, stream=True,
+                )
+                redirects += 1
+        finally:
+            urllib3.util.connection.create_connection = _orig_create_conn
 
         response.raise_for_status()
 

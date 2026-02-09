@@ -16,7 +16,7 @@ SCHEMA = {
 }
 
 
-PROTECTED_FILES = {".env", "main.py", "instruction.md", ".gitignore", "requirements.txt", "security.md", "style.md", "ws_server.py", "telegram_bot.py"}
+PROTECTED_FILES = {".env", "main.py", "instruction.md", ".gitignore", "requirements.txt", "security.md", "style.md", "ws_server.py", "telegram_bot.py", ".tool_approved.json"}
 PROTECTED_DIRS = {"tools"}
 MAX_CONTENT_SIZE = 1024 * 1024  # 1MB
 
@@ -39,7 +39,7 @@ def main(path, content):
             return "Error: 현재 디렉토리 범위 밖에는 저장할 수 없습니다."
 
         # 보호 파일 체크
-        if resolved.name in PROTECTED_FILES:
+        if resolved.name.lower() in PROTECTED_FILES:
             return f"Error: 보호된 파일입니다: {resolved.name}"
 
         # 보호 디렉토리 체크 (tools/ 내 기존 파일 덮어쓰기 방지)
