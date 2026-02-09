@@ -31,8 +31,11 @@ def log(f, role, message):
 
 
 _DANGEROUS_PATTERNS = [
-    r"\bos\.system\b", r"\bsubprocess\b", r"\beval\s*\(", r"\bexec\s*\(",
+    r"\bos\.system\b", r"\bos\.popen\b", r"\bos\.exec\w*\b",
+    r"\bsubprocess\b", r"\beval\s*\(", r"\bexec\s*\(",
     r"\b__import__\b", r"\bcompile\s*\(", r"\bglobals\s*\(", r"\bgetattr\s*\(",
+    r"\bimportlib\b", r"\bctypes\b", r"\bpickle\b",
+    r"\bshutil\.rmtree\b", r"\bsocket\b",
 ]
 _DANGEROUS_RE = re.compile("|".join(_DANGEROUS_PATTERNS))
 
@@ -70,15 +73,18 @@ class ToolManager:
         filepath = os.path.join(self.tools_dir, filename)
         module_name = filename[:-3]
 
-        # 새 파일이 추가된 경우: 위험 패턴 검사 + 사용자 승인
-        if not first_load and filename not in self._approved:
+        # 위험 패턴 검사 + 사용자 승인 (첫 로드 시에도 검사, 승인 프롬프트는 새 파일만)
+        if filename not in self._approved:
             dangers = self._check_dangerous(filepath)
             if dangers:
-                print(f" [보안 경고] {filename}에서 위험 패턴 발견: {dangers}")
-                confirm = input(f" {filename}을(를) 로드하시겠습니까? (Y/N): ").strip().upper()
-                if confirm != "Y":
-                    print(f" [도구 차단] {filename}")
-                    return None
+                if first_load:
+                    print(f" [보안 알림] {filename}: 위험 패턴 감지됨 (기존 도구이므로 자동 승인)")
+                else:
+                    print(f" [보안 경고] {filename}에서 위험 패턴 발견: {dangers}")
+                    confirm = input(f" {filename}을(를) 로드하시겠습니까? (Y/N): ").strip().upper()
+                    if confirm != "Y":
+                        print(f" [도구 차단] {filename}")
+                        return None
 
         spec = importlib.util.spec_from_file_location(module_name, filepath)
         module = importlib.util.module_from_spec(spec)
@@ -233,14 +239,14 @@ def main():
                             continue
                         try:
                             result = fn(**tool_use.input)
-                        except Exception as tool_err:
-                            result = f"Error: {tool_err}"
+                        except Exception:
+                            result = "Error: 도구 실행 실패"
                         tool_message = f"[도구 실행 결과] {tool_use.name}({tool_use.input}) => {result}"
                         log(f, "Tool->Claude", tool_message)
                         tool_results.append({
                             "type": "tool_result",
                             "tool_use_id": tool_use.id,
-                            "content": str(result),
+                            "content": f"[TOOL OUTPUT]\n{result}\n[/TOOL OUTPUT]",
                         })
 
                     messages.append({"role": "user", "content": tool_results})
@@ -257,7 +263,7 @@ def main():
 
             except Exception as e:
                 log(f, "Error", str(e))
-                print(f"Error: {e}")
+                print("Error: 요청 처리 중 오류가 발생했습니다.")
 
 
 if __name__ == "__main__":

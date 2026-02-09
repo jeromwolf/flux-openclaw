@@ -65,11 +65,13 @@ def main(url, max_chars=3000):
             allow_redirects=False, stream=True,
         )
 
-        # 리다이렉트 처리 (최대 5회, 대상 IP도 검증)
+        # 리다이렉트 처리 (최대 5회, 스킴+IP 검증)
         redirects = 0
         while response.is_redirect and redirects < 5:
             redirect_url = response.headers.get("Location", "")
             rp = urlparse(redirect_url)
+            if rp.scheme and rp.scheme not in ("http", "https"):
+                return "Error: 허용되지 않는 프로토콜로 리다이렉트됩니다."
             if rp.hostname and _is_private_ip(rp.hostname):
                 return "Error: 리다이렉트 대상이 내부 네트워크 주소입니다."
             response = requests.get(

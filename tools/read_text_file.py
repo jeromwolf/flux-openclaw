@@ -15,7 +15,7 @@ SCHEMA = {
 }
 
 SECRET_PATTERNS = re.compile(r"(sk-ant-[a-zA-Z0-9_-]+|AIza[a-zA-Z0-9_-]+|sk-[a-zA-Z0-9_-]{20,})")
-BLOCKED_FILES = {".env"}
+BLOCKED_FILES = {".env", ".env.local", ".env.production", ".env.development"}
 
 
 def main(path):

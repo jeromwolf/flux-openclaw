@@ -15,14 +15,19 @@ SCHEMA = {
 }
 
 
-PROTECTED_FILES = {".env", "main.py", "instruction.md", ".gitignore", "requirements.txt", "security.md"}
+PROTECTED_FILES = {".env", "main.py", "instruction.md", ".gitignore", "requirements.txt", "security.md", "style.md"}
 PROTECTED_DIRS = {"tools"}
+MAX_CONTENT_SIZE = 1024 * 1024  # 1MB
 
 
 def main(path, content):
     try:
         cwd = Path(".").resolve()
         resolved = Path(path).resolve()
+
+        # 콘텐츠 크기 제한
+        if len(content) > MAX_CONTENT_SIZE:
+            return f"Error: 파일 크기가 1MB를 초과합니다."
 
         # 심볼릭 링크 차단
         if Path(path).is_symlink():
