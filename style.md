@@ -39,8 +39,8 @@
 ## 메모리
 
 - **시스템 프롬프트**: `memory/instruction.md` 파일에 클로드의 시스템 프롬프트를 저장한다.
-- **Memory.md**: 에이전트 메모리 개념으로 개인 정보나 기억해야 할 것들을 `Memory.md` 파일에 기록한다.
-- **도구로 관리**: 에이전트가 Read/Write 도구를 통해 직접 Memory.md를 읽고 쓴다.
+- **memory.md**: 에이전트 메모리 개념으로 개인 정보나 기억해야 할 것들을 `memory/memory.md` 파일에 기록한다. 시작 시 시스템 프롬프트에 자동 주입된다.
+- **도구로 관리**: 에이전트가 Read/Write 도구를 통해 직접 memory/memory.md를 읽고 쓴다.
 
 ## 자기 확장(Self-Extending)
 

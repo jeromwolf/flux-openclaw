@@ -103,13 +103,24 @@ def main():
     tool_mgr = ToolManager()
 
     client = anthropic.Anthropic(api_key=api_key)
-    # memory/instruction.md에서 시스템 프롬프트 로드
+
+    # 시스템 프롬프트 구성: instruction + memory
     instruction_path = "memory/instruction.md"
+    memory_path = "memory/memory.md"
+
     if os.path.exists(instruction_path):
         with open(instruction_path, "r") as inf:
             system_prompt = inf.read()
     else:
         system_prompt = "당신은 도움이 되는 AI 어시스턴트입니다."
+
+    if os.path.exists(memory_path):
+        with open(memory_path, "r") as mf:
+            memory_content = mf.read().strip()
+        if memory_content:
+            system_prompt += f"\n\n## 기억 (memory/memory.md)\n아래는 이전 대화에서 저장한 기억입니다. 참고하세요.\n\n{memory_content}"
+            print(f" [메모리] memory.md 로드됨 ({len(memory_content)}자)")
+
     messages = []
 
     with open("log.md", "w") as f:
