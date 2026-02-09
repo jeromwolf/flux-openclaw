@@ -15,7 +15,7 @@ SCHEMA = {
 }
 
 
-PROTECTED_FILES = {".env", "main.py", "instruction.md", ".gitignore", "requirements.txt", "security.md", "style.md"}
+PROTECTED_FILES = {".env", "main.py", "instruction.md", ".gitignore", "requirements.txt", "security.md", "style.md", "ws_server.py", "telegram_bot.py"}
 PROTECTED_DIRS = {"tools"}
 MAX_CONTENT_SIZE = 1024 * 1024  # 1MB
 

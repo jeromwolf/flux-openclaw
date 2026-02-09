@@ -14,6 +14,7 @@ import os
 import re
 import sys
 import json
+import fcntl
 import asyncio
 import warnings
 from datetime import datetime, timedelta
@@ -69,30 +70,34 @@ RATE_LIMIT_WINDOW = timedelta(minutes=1)
 
 # API 일일 호출 제한 (main.py와 동일한 파일 사용)
 USAGE_FILE = "usage_data.json"
-MAX_DAILY_CALLS = int(os.environ.get("MAX_DAILY_CALLS", "100"))
+MAX_DAILY_CALLS = max(1, min(int(os.environ.get("MAX_DAILY_CALLS", "100")), 10000))
 
 # === 사용량 추적 (main.py와 공유) ===
 def load_usage_data():
-    """usage_data.json에서 오늘 날짜의 사용량 로드"""
+    """usage_data.json에서 오늘 날짜의 사용량 로드 (공유 잠금)"""
     today = datetime.now().strftime("%Y-%m-%d")
     if os.path.exists(USAGE_FILE):
         try:
             with open(USAGE_FILE, "r") as f:
+                fcntl.flock(f, fcntl.LOCK_SH)
                 data = json.load(f)
             if data.get("date") == today:
                 return data
+        except (json.JSONDecodeError, ValueError):
+            pass
         except Exception as e:
-            print(f" [경고] 사용량 파일 로드 실패: {e}")
+            print(f" [경고] 사용량 파일 로드 실패")
     return {"date": today, "calls": 0, "input_tokens": 0, "output_tokens": 0}
 
 
 def save_usage_data(data):
-    """usage_data.json에 사용량 저장"""
+    """usage_data.json에 사용량 저장 (배타적 잠금)"""
     try:
         with open(USAGE_FILE, "w") as f:
+            fcntl.flock(f, fcntl.LOCK_EX)
             json.dump(data, f, indent=2)
-    except Exception as e:
-        print(f" [경고] 사용량 파일 저장 실패: {e}")
+    except Exception:
+        print(f" [경고] 사용량 파일 저장 실패")
 
 
 def check_daily_limit():
@@ -138,6 +143,14 @@ class RateLimiter:
         """연결 종료 시 데이터 정리"""
         if connection_id in self.message_times:
             del self.message_times[connection_id]
+
+    def cleanup_stale(self):
+        """오래된 연결 데이터 정리 (비정상 종료 대비)"""
+        now = datetime.now()
+        stale = [cid for cid, times in self.message_times.items()
+                 if not times or (now - times[-1]) > timedelta(minutes=5)]
+        for cid in stale:
+            del self.message_times[cid]
 
 
 # === WebSocket 서버 ===
@@ -417,7 +430,14 @@ class ChatbotServer:
         print(f" - 일일 API 제한: {MAX_DAILY_CALLS}회")
         print(f"\n종료하려면 Ctrl+C를 누르세요.\n")
 
+        async def _periodic_cleanup():
+            """5분마다 비정상 종료된 연결 데이터 정리"""
+            while True:
+                await asyncio.sleep(300)
+                self.rate_limiter.cleanup_stale()
+
         async with serve(self.handle_connection, WS_HOST, WS_PORT):
+            asyncio.create_task(_periodic_cleanup())
             await asyncio.Future()  # 무한 대기
 
 

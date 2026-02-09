@@ -3,6 +3,7 @@ import re
 import sys
 import json
 import glob
+import fcntl
 import warnings
 import importlib.util
 from datetime import datetime
@@ -176,14 +177,19 @@ def main():
 
     def load_usage():
         if os.path.exists(usage_file):
-            with open(usage_file, "r") as uf:
-                data = json.load(uf)
-            if data.get("date") == today_str:
-                return data
+            try:
+                with open(usage_file, "r") as uf:
+                    fcntl.flock(uf, fcntl.LOCK_SH)
+                    data = json.load(uf)
+                if data.get("date") == today_str:
+                    return data
+            except (json.JSONDecodeError, ValueError):
+                pass
         return {"date": today_str, "calls": 0, "input_tokens": 0, "output_tokens": 0}
 
     def save_usage(data):
         with open(usage_file, "w") as uf:
+            fcntl.flock(uf, fcntl.LOCK_EX)
             json.dump(data, uf, ensure_ascii=False)
 
     usage = load_usage()
@@ -223,7 +229,8 @@ def main():
             log(f, "User", user_input)
             messages.append({"role": "user", "content": user_input})
 
-            # S1: 일일 호출 한도 확인
+            # S1: 일일 호출 한도 확인 (파일에서 최신 값 로드)
+            usage = load_usage()
             if usage["calls"] >= 100:
                 print(" [제한] 오늘의 API 호출 한도(100회)에 도달했습니다. 내일 다시 시도해주세요.")
                 messages.pop()  # 미처리 메시지 제거

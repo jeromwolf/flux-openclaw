@@ -8,6 +8,7 @@ import os
 import re
 import sys
 import json
+import fcntl
 import asyncio
 import logging
 from datetime import datetime
@@ -65,18 +66,28 @@ USAGE_DATA_FILE = "usage_data.json"
 # 사용자별 대화 히스토리 (chat_id -> messages)
 user_conversations: Dict[int, List[dict]] = {}
 
+# 글로벌 싱글톤 (main()에서 초기화)
+_tool_mgr = None
+_client = None
+_system_prompt = ""
+
 
 def load_usage_data() -> dict:
-    """사용량 데이터 로드"""
+    """사용량 데이터 로드 (공유 잠금)"""
     if os.path.exists(USAGE_DATA_FILE):
-        with open(USAGE_DATA_FILE, "r") as f:
-            return json.load(f)
+        try:
+            with open(USAGE_DATA_FILE, "r") as f:
+                fcntl.flock(f, fcntl.LOCK_SH)
+                return json.load(f)
+        except (json.JSONDecodeError, ValueError):
+            pass
     return {"date": datetime.now().strftime("%Y-%m-%d"), "calls": 0, "input_tokens": 0, "output_tokens": 0}
 
 
 def save_usage_data(data: dict):
-    """사용량 데이터 저장"""
+    """사용량 데이터 저장 (배타적 잠금)"""
     with open(USAGE_DATA_FILE, "w") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
         json.dump(data, f, indent=2)
 
 
@@ -355,11 +366,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         "content": f"[TOOL OUTPUT]\n{result}\n[/TOOL OUTPUT]",
                     })
                 except Exception as e:
-                    logger.error(f" [도구] 실행 실패: {tool_name} - {e}")
+                    logger.error(f" [도구] 실행 실패: {tool_name} - {_mask_secrets(str(e))}")
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": tool_use.id,
-                        "content": f"Error: 도구 실행 실패 - {str(e)}",
+                        "content": "Error: 도구 실행 실패",
                         "is_error": True,
                     })
 
