@@ -1,6 +1,8 @@
 import os
 import re
 import sys
+import json
+import glob
 import warnings
 import importlib.util
 from datetime import datetime
@@ -165,12 +167,52 @@ def main():
             print(f" [메모리] memory.md 로드됨 ({len(memory_content)}자)")
 
     messages = []
+    cumulative_input_tokens = 0
+    cumulative_output_tokens = 0
+
+    # --- S1: 일일 API 사용량 로드 ---
+    usage_file = "usage_data.json"
+    today_str = datetime.now().strftime("%Y-%m-%d")
+
+    def load_usage():
+        if os.path.exists(usage_file):
+            with open(usage_file, "r") as uf:
+                data = json.load(uf)
+            if data.get("date") == today_str:
+                return data
+        return {"date": today_str, "calls": 0, "input_tokens": 0, "output_tokens": 0}
+
+    def save_usage(data):
+        with open(usage_file, "w") as uf:
+            json.dump(data, uf, ensure_ascii=False)
+
+    usage = load_usage()
+    if usage["calls"] > 0:
+        print(f" [사용량] 오늘 API 호출: {usage['calls']}/100, 입력토큰: {usage['input_tokens']}, 출력토큰: {usage['output_tokens']}")
+
+    # --- F1: 이전 대화 복원 ---
+    os.makedirs("history", exist_ok=True)
+    history_files = sorted(glob.glob("history/history_*.json"))
+    if history_files:
+        restore = input(" [복원] 마지막 대화를 복원하시겠습니까? (Y/N): ").strip().upper()
+        if restore == "Y":
+            with open(history_files[-1], "r") as hf:
+                saved = json.load(hf)
+            messages = saved.get("messages", [])
+            print(f" [복원] {len(messages)}개 메시지 복원됨 ({history_files[-1]})")
 
     with open("log.md", "w") as f:
         f.write(f"# Chat Log ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})\n\n")
         while True:
             user_input = input("켈리: ")
             if user_input.lower() in ["exit", "quit"]:
+                # F1: 대화 기록 자동 저장
+                if messages:
+                    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    save_path = f"history/history_{ts}.json"
+                    with open(save_path, "w") as hf:
+                        json.dump({"timestamp": ts, "messages": messages}, hf, ensure_ascii=False, indent=2)
+                    print(f" [저장] 대화 기록이 저장되었습니다: {save_path}")
                 break
             if not user_input.strip():
                 continue
@@ -180,6 +222,12 @@ def main():
 
             log(f, "User", user_input)
             messages.append({"role": "user", "content": user_input})
+
+            # S1: 일일 호출 한도 확인
+            if usage["calls"] >= 100:
+                print(" [제한] 오늘의 API 호출 한도(100회)에 도달했습니다. 내일 다시 시도해주세요.")
+                messages.pop()  # 미처리 메시지 제거
+                continue
 
             try:
                 # 도구 호출이 연쇄적으로 발생할 수 있으므로 반복 처리 (최대 10회)
@@ -195,6 +243,20 @@ def main():
                         messages=messages,
                     )
                     print(f" [수신] stop_reason={response.stop_reason}, blocks={len(response.content)}")
+
+                    # S1: API 호출 카운트 및 토큰 누적
+                    resp_input = response.usage.input_tokens
+                    resp_output = response.usage.output_tokens
+                    usage["calls"] += 1
+                    usage["input_tokens"] += resp_input
+                    usage["output_tokens"] += resp_output
+                    cumulative_input_tokens += resp_input
+                    cumulative_output_tokens += resp_output
+                    save_usage(usage)
+
+                    # F2: 토큰 사용량 표시
+                    print(f" [토큰] 입력: {resp_input} / 출력: {resp_output} (누적: {cumulative_input_tokens}/{cumulative_output_tokens})")
+
                     log(f, "Claude", str(response))
 
                     # 응답이 잘린 경우 (max_tokens 초과) → 도구 실행하지 않음

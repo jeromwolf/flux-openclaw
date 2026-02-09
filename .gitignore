@@ -6,3 +6,5 @@ __pycache__/
 screenshots/
 .omc/
 .claude/
+usage_data.json
+history/
