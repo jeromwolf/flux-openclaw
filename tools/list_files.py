@@ -30,7 +30,7 @@ def main(path):
         if not resolved.is_dir():
             return f"Error: 디렉토리가 존재하지 않습니다: {path}"
 
-        files = os.listdir(resolved)
+        files = [f for f in os.listdir(resolved) if not f.startswith('.')]
         return str(files)
     except Exception:
         return "Error: 디렉토리를 조회할 수 없습니다."

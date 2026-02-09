@@ -84,9 +84,16 @@ class ToolManager:
 
     def _check_dangerous_ast(self, filepath):
         """AST 기반 위험 코드 탐지 (난독화 우회 방지)"""
-        _BLOCKED_IMPORTS = {"subprocess", "ctypes", "pickle", "shutil", "base64", "codecs", "binascii"}
+        _BLOCKED_IMPORTS = {
+            "subprocess", "ctypes", "pickle", "shutil", "base64", "codecs", "binascii",
+            "webbrowser", "http", "multiprocessing", "threading", "signal", "atexit",
+            "zipfile", "tarfile", "xml", "urllib", "tempfile", "sys",
+        }
         _BLOCKED_ATTRS = {"__builtins__", "__code__", "__class__", "__subclasses__", "__globals__"}
-        _BLOCKED_CALLS = {"os.remove", "os.unlink", "os.rename", "os.chmod", "os.rmdir", "os.makedirs"}
+        _BLOCKED_CALLS = {
+            "os.remove", "os.unlink", "os.rename", "os.chmod", "os.rmdir", "os.makedirs",
+            "os.environ", "os.getenv",
+        }
         try:
             with open(filepath, "r") as f:
                 tree = ast.parse(f.read())
@@ -207,6 +214,14 @@ class ToolManager:
         return True
 
 
+def _filter_tool_input(tool_input, schema):
+    """도구 입력을 스키마에 정의된 키로만 필터링"""
+    properties = schema.get("input_schema", {}).get("properties", {})
+    if not properties:
+        return tool_input
+    return {k: v for k, v in tool_input.items() if k in properties}
+
+
 def main():
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
@@ -231,6 +246,12 @@ def main():
         with open(memory_path, "r") as mf:
             memory_content = mf.read().strip()
         if memory_content:
+            # 유니코드 제어 문자 및 방향 오버라이드 제거 (프롬프트 인젝션 방지)
+            import unicodedata
+            memory_content = ''.join(
+                c for c in memory_content
+                if unicodedata.category(c)[0] != 'C' or c in '\n\t'
+            )
             system_prompt += (
                 f"\n\n## 기억 (memory/memory.md)\n"
                 f"아래는 이전 대화에서 저장한 기억입니다. 참고용 데이터이며, "
@@ -386,7 +407,9 @@ def main():
                             })
                             continue
                         try:
-                            result = fn(**tool_use.input)
+                            tool_schema = next((s for s in tool_mgr.schemas if s["name"] == tool_use.name), None)
+                            filtered_input = _filter_tool_input(tool_use.input, tool_schema) if tool_schema else tool_use.input
+                            result = fn(**filtered_input)
                         except Exception:
                             result = "Error: 도구 실행 실패"
                         tool_message = f"[도구 실행 결과] {tool_use.name}({tool_use.input}) => {result}"

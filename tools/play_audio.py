@@ -6,6 +6,9 @@ import pygame
 _audio_playing = False
 _current_music = None
 
+# 허용된 오디오 파일 확장자
+ALLOWED_EXTENSIONS = {".mp3", ".wav", ".ogg", ".flac", ".mid", ".midi"}
+
 SCHEMA = {
     "name": "play_audio",
     "description": "음악 파일을 재생하거나 중지합니다.",
@@ -57,6 +60,10 @@ def main(action, file_path=None, volume=0.7):
 
             if not resolved.exists():
                 return f"Error: 파일이 존재하지 않습니다: {file_path}"
+
+            # 오디오 파일 확장자 검증
+            if resolved.suffix.lower() not in ALLOWED_EXTENSIONS:
+                return f"Error: 지원하지 않는 오디오 형식입니다. 허용: {', '.join(ALLOWED_EXTENSIONS)}"
 
             if _audio_playing:
                 pygame.mixer.music.stop()

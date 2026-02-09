@@ -33,7 +33,7 @@ def capture_screenshot(output_path=None):
             if Path(output_path).is_symlink():
                 return "Error: 심볼릭 링크는 허용되지 않습니다."
             # 워크스페이스 외부 접근 차단
-            if not str(resolved).startswith(str(cwd) + os.sep):
+            if not resolved == cwd and not str(resolved).startswith(str(cwd) + os.sep):
                 return "Error: 현재 디렉토리 범위 밖에는 저장할 수 없습니다."
 
         screenshot = ImageGrab.grab()

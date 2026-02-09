@@ -1,5 +1,6 @@
 import ipaddress
 import re
+import threading
 from urllib.parse import urlparse
 import socket
 import requests
@@ -23,6 +24,7 @@ SCHEMA = {
 }
 
 MAX_RESPONSE_BYTES = 5 * 1024 * 1024  # 5MB
+_dns_pin_lock = threading.Lock()
 
 
 def _is_private_ip(hostname):
@@ -82,14 +84,14 @@ def main(url, max_chars=3000):
         }
 
         # DNS 핀닝: 해석된 IP로 강제 연결 (DNS 리바인딩 공격 방지)
+        _dns_pin_lock.acquire()
         _orig_create_conn = urllib3.util.connection.create_connection
-        _pinned_hostname = parsed.hostname
-        _pinned_ip = resolved_ip
+        _pinned_hosts = {parsed.hostname: resolved_ip}
 
         def _pinned_create_connection(address, *args, **kwargs):
             host, port = address
-            if host == _pinned_hostname:
-                return _orig_create_conn((_pinned_ip, port), *args, **kwargs)
+            if host in _pinned_hosts:
+                return _orig_create_conn((_pinned_hosts[host], port), *args, **kwargs)
             return _orig_create_conn(address, *args, **kwargs)
 
         urllib3.util.connection.create_connection = _pinned_create_connection
@@ -107,11 +109,12 @@ def main(url, max_chars=3000):
                 rp = urlparse(redirect_url)
                 if rp.scheme and rp.scheme not in ("http", "https"):
                     return "Error: 허용되지 않는 프로토콜로 리다이렉트됩니다."
-                if rp.hostname and rp.hostname != _pinned_hostname:
-                    # 다른 호스트로 리다이렉트: 새로 DNS 해석 + 검증
+                if rp.hostname and rp.hostname not in _pinned_hosts:
+                    # 다른 호스트로 리다이렉트: 새로 DNS 해석 + 검증 + 핀닝
                     redirect_ip = _resolve_hostname(rp.hostname)
                     if not redirect_ip:
                         return "Error: 리다이렉트 대상이 내부 네트워크 주소입니다."
+                    _pinned_hosts[rp.hostname] = redirect_ip
                 response = requests.get(
                     redirect_url, headers=headers, timeout=10,
                     allow_redirects=False, stream=True,
@@ -119,6 +122,7 @@ def main(url, max_chars=3000):
                 redirects += 1
         finally:
             urllib3.util.connection.create_connection = _orig_create_conn
+            _dns_pin_lock.release()
 
         response.raise_for_status()
 

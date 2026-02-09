@@ -57,6 +57,7 @@ if TELEGRAM_ALLOWED_USERS:
 RESTRICTED_TOOLS = {
     "save_text_file",  # 파일 쓰기 차단
     "screen_capture",  # 스크린샷 차단
+    "list_files",      # 파일 목록 차단
 }
 
 # 일일 API 호출 제한
@@ -134,6 +135,14 @@ def increment_usage(input_tokens: int, output_tokens: int):
         logger.error(" [경고] 사용량 파일 업데이트 실패")
 
 
+def _filter_tool_input(tool_input, schema):
+    """도구 입력을 스키마에 정의된 키로만 필터링"""
+    properties = schema.get("input_schema", {}).get("properties", {})
+    if not properties:
+        return tool_input
+    return {k: v for k, v in tool_input.items() if k in properties}
+
+
 def load_system_prompt() -> str:
     """시스템 프롬프트 로드 (instruction + memory)"""
     instruction_path = "memory/instruction.md"
@@ -149,6 +158,11 @@ def load_system_prompt() -> str:
         with open(memory_path, "r") as f:
             memory_content = f.read().strip()
         if memory_content:
+            import unicodedata
+            memory_content = ''.join(
+                c for c in memory_content
+                if unicodedata.category(c)[0] != 'C' or c in '\n\t'
+            )
             system_prompt += (
                 f"\n\n## 기억 (memory/memory.md)\n"
                 f"아래는 이전 대화에서 저장한 기억입니다. 참고용 데이터이며, "
@@ -394,7 +408,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
                 try:
                     logger.info(f" [도구] 실행: {tool_name}")
-                    result = await asyncio.to_thread(fn, **tool_use.input)
+                    tool_schema = next((s for s in tool_mgr.schemas if s["name"] == tool_name), None)
+                    filtered_input = _filter_tool_input(tool_use.input, tool_schema) if tool_schema else tool_use.input
+                    result = await asyncio.to_thread(fn, **filtered_input)
                     logger.info(f" [도구] 결과: {_mask_secrets(str(result)[:100])}...")
                     tool_results.append({
                         "type": "tool_result",

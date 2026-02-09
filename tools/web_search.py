@@ -19,7 +19,7 @@ SCHEMA = {
 
 def main(query, max_results=5):
     try:
-        max_results = min(int(max_results), 20)
+        max_results = max(1, min(int(max_results), 20))
 
         with DDGS() as ddgs:
             results = ddgs.text(query, backend="lite", max_results=max_results)

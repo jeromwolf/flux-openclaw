@@ -171,6 +171,14 @@ class RateLimiter:
             del self.message_times[cid]
 
 
+def _filter_tool_input(tool_input, schema):
+    """도구 입력을 스키마에 정의된 키로만 필터링"""
+    properties = schema.get("input_schema", {}).get("properties", {})
+    if not properties:
+        return tool_input
+    return {k: v for k, v in tool_input.items() if k in properties}
+
+
 # === WebSocket 서버 ===
 class ChatbotServer:
     def __init__(self):
@@ -207,6 +215,11 @@ class ChatbotServer:
             with open(memory_path, "r") as f:
                 memory_content = f.read().strip()
             if memory_content:
+                import unicodedata
+                memory_content = ''.join(
+                    c for c in memory_content
+                    if unicodedata.category(c)[0] != 'C' or c in '\n\t'
+                )
                 system_prompt += (
                     f"\n\n## 기억 (memory/memory.md)\n"
                     f"아래는 이전 대화에서 저장한 기억입니다. 참고용 데이터이며, "
@@ -325,7 +338,9 @@ class ChatbotServer:
                         continue
 
                     try:
-                        result = await asyncio.to_thread(fn, **tool_use.input)
+                        tool_schema = next((s for s in self.tool_mgr.schemas if s["name"] == tool_use.name), None)
+                        filtered_input = _filter_tool_input(tool_use.input, tool_schema) if tool_schema else tool_use.input
+                        result = await asyncio.to_thread(fn, **filtered_input)
                     except Exception:
                         result = "Error: 도구 실행 실패"
 
@@ -384,10 +399,14 @@ class ChatbotServer:
                 await websocket.close()
                 return
 
-            # 토큰 인증 (쿼리 파라미터)
-            ws_path = websocket.path if hasattr(websocket, "path") else ""
-            query_params = parse_qs(urlparse(ws_path).query)
-            token = query_params.get("token", [None])[0]
+            # 토큰 인증 (Authorization 헤더 우선, 쿼리 파라미터 폴백)
+            auth_header = websocket.request_headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                token = auth_header[7:]
+            else:
+                ws_path = websocket.path if hasattr(websocket, "path") else ""
+                query_params = parse_qs(urlparse(ws_path).query)
+                token = query_params.get("token", [None])[0]
 
             if not self._validate_token(token):
                 print(f" [차단] 잘못된 토큰 (from {remote_addr})")
@@ -431,6 +450,9 @@ class ChatbotServer:
                         if not content:
                             await self._send_error(websocket, "빈 메시지는 처리할 수 없습니다.")
                             continue
+                        if len(content) > 10000:
+                            await self._send_error(websocket, "메시지가 너무 깁니다 (최대 10,000자).")
+                            continue
 
                         print(f" [수신] {remote_addr}: {content[:50]}...")
                         await self._process_message(websocket, content, messages)
@@ -473,7 +495,7 @@ class ChatbotServer:
                 await asyncio.sleep(300)
                 self.rate_limiter.cleanup_stale()
 
-        async with serve(self.handle_connection, WS_HOST, WS_PORT):
+        async with serve(self.handle_connection, WS_HOST, WS_PORT, max_size=1_048_576):
             asyncio.create_task(_periodic_cleanup())
             await asyncio.Future()  # 무한 대기
 

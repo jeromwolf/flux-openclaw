@@ -14,8 +14,13 @@ SCHEMA = {
     },
 }
 
-SECRET_PATTERNS = re.compile(r"(sk-ant-[a-zA-Z0-9_-]+|AIza[a-zA-Z0-9_-]+|sk-[a-zA-Z0-9_-]{20,})")
-BLOCKED_FILES = {".env", ".env.local", ".env.production", ".env.development"}
+SECRET_PATTERNS = re.compile(
+    r"(sk-ant-[a-zA-Z0-9_-]+|AIza[a-zA-Z0-9_-]+|sk-[a-zA-Z0-9_-]{20,}"
+    r"|ghp_[a-zA-Z0-9]{36,}|glpat-[a-zA-Z0-9_-]{20,}"
+    r"|xox[bpsa]-[a-zA-Z0-9-]{10,})"
+)
+BLOCKED_FILES = {".env", ".env.local", ".env.production", ".env.development", "log.md"}
+BLOCKED_DIRS = {"history"}
 
 
 def main(path):
@@ -34,6 +39,14 @@ def main(path):
         # 차단 파일
         if resolved.name.lower() in BLOCKED_FILES:
             return f"Error: 보안상 읽을 수 없는 파일입니다: {resolved.name}"
+
+        # 차단 디렉토리 체크
+        try:
+            rel = resolved.relative_to(cwd)
+            if rel.parts and rel.parts[0] in BLOCKED_DIRS:
+                return f"Error: 보안상 읽을 수 없는 디렉토리입니다: {rel.parts[0]}/"
+        except ValueError:
+            pass
 
         if not resolved.exists():
             return f"Error: 파일이 존재하지 않습니다: {path}"
