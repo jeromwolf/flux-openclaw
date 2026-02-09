@@ -8,3 +8,4 @@ screenshots/
 .claude/
 usage_data.json
 history/
+.tool_approved.json

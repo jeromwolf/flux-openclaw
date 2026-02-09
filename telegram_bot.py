@@ -266,6 +266,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     messages = user_conversations[chat_id]
     messages.append({"role": "user", "content": user_message})
 
+    # 대화 히스토리 상한 (메모리 + 비용 보호)
+    if len(messages) > 50:
+        messages[:] = messages[-50:]
+        while messages and messages[0]["role"] != "user":
+            messages.pop(0)
+
     # "입력 중..." 표시
     await update.message.chat.send_action("typing")
 
@@ -357,8 +363,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     continue
 
                 try:
-                    logger.info(f" [도구] 실행: {tool_name}({tool_use.input})")
-                    result = fn(**tool_use.input)
+                    logger.info(f" [도구] 실행: {tool_name}")
+                    result = await asyncio.to_thread(fn, **tool_use.input)
                     logger.info(f" [도구] 결과: {_mask_secrets(str(result)[:100])}...")
                     tool_results.append({
                         "type": "tool_result",

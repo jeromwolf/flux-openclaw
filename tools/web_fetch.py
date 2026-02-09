@@ -43,6 +43,7 @@ def _is_private_ip(hostname):
 
 
 def main(url, max_chars=3000):
+    max_chars = max(100, min(int(max_chars), 50000))
     try:
         # URL 스킴 검증
         parsed = urlparse(url)

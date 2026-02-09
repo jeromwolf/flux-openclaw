@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 SCHEMA = {
@@ -50,6 +51,8 @@ def main(path, content):
             pass
 
         if resolved.exists():
+            if not sys.stdin.isatty():
+                return "Error: 비대화형 환경에서는 기존 파일을 덮어쓸 수 없습니다."
             confirm = input(f"'{path}' 파일이 이미 존재합니다. 덮어쓰시겠습니까? (Y/N): ").strip().upper()
             if confirm != "Y":
                 return "저장 취소됨"

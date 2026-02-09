@@ -3,7 +3,9 @@ import re
 import sys
 import json
 import glob
+import ast
 import fcntl
+import hashlib
 import warnings
 import importlib.util
 from datetime import datetime
@@ -39,6 +41,8 @@ _DANGEROUS_PATTERNS = [
     r"\b__import__\b", r"\bcompile\s*\(", r"\bglobals\s*\(", r"\bgetattr\s*\(",
     r"\bimportlib\b", r"\bctypes\b", r"\bpickle\b",
     r"\bshutil\.rmtree\b", r"\bsocket\b",
+    r"\bbase64\b", r"\bcodecs\b", r"\bbinascii\b",
+    r"__builtins__", r"__subclasses__",
 ]
 _DANGEROUS_RE = re.compile("|".join(_DANGEROUS_PATTERNS))
 
@@ -65,29 +69,77 @@ class ToolManager:
                 mtimes[fname] = os.path.getmtime(path)
         return mtimes
 
+    _APPROVED_FILE = ".tool_approved.json"
+
     def _check_dangerous(self, filepath):
         """위험 패턴 탐지. 발견된 패턴 목록 반환"""
         with open(filepath, "r") as f:
             code = f.read()
         return _DANGEROUS_RE.findall(code)
 
+    def _check_dangerous_ast(self, filepath):
+        """AST 기반 위험 코드 탐지 (난독화 우회 방지)"""
+        _BLOCKED_IMPORTS = {"subprocess", "ctypes", "pickle", "shutil", "base64", "codecs", "binascii"}
+        _BLOCKED_ATTRS = {"__builtins__", "__code__", "__class__", "__subclasses__", "__globals__"}
+        try:
+            with open(filepath, "r") as f:
+                tree = ast.parse(f.read())
+        except SyntaxError:
+            return ["SyntaxError"]
+        findings = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name.split(".")[0] in _BLOCKED_IMPORTS:
+                        findings.append(f"import {alias.name}")
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                if node.module.split(".")[0] in _BLOCKED_IMPORTS:
+                    findings.append(f"from {node.module}")
+            elif isinstance(node, ast.Attribute) and node.attr in _BLOCKED_ATTRS:
+                findings.append(f"{node.attr}")
+        return findings
+
+    def _file_hash(self, filepath):
+        """파일 SHA-256 해시 계산"""
+        with open(filepath, "rb") as f:
+            return hashlib.sha256(f.read()).hexdigest()
+
+    def _load_approved_hashes(self):
+        """영속적 도구 승인 해시 로드"""
+        if os.path.exists(self._APPROVED_FILE):
+            try:
+                with open(self._APPROVED_FILE, "r") as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, ValueError):
+                pass
+        return {}
+
+    def _save_approved_hashes(self, hashes):
+        """도구 승인 해시 저장"""
+        with open(self._APPROVED_FILE, "w") as f:
+            json.dump(hashes, f, ensure_ascii=False)
+
     def _load_module(self, filename, first_load=False):
         """단일 .py 파일을 로드하여 (schema, func) 또는 None 반환"""
         filepath = os.path.join(self.tools_dir, filename)
         module_name = filename[:-3]
 
-        # 위험 패턴 검사 + 사용자 승인 (첫 로드 시에도 검사, 승인 프롬프트는 새 파일만)
+        # 위험 패턴 검사: regex + AST + 해시 기반 영속 승인
         if filename not in self._approved:
-            dangers = self._check_dangerous(filepath)
+            dangers = self._check_dangerous(filepath) + self._check_dangerous_ast(filepath)
             if dangers:
-                if first_load:
-                    print(f" [보안 알림] {filename}: 위험 패턴 감지됨 (기존 도구이므로 자동 승인)")
+                file_hash = self._file_hash(filepath)
+                saved = self._load_approved_hashes()
+                if saved.get(filename) == file_hash:
+                    pass  # 이전 승인됨 + 파일 미변경 → 자동 승인
                 else:
                     print(f" [보안 경고] {filename}에서 위험 패턴 발견: {dangers}")
                     confirm = input(f" {filename}을(를) 로드하시겠습니까? (Y/N): ").strip().upper()
                     if confirm != "Y":
                         print(f" [도구 차단] {filename}")
                         return None
+                    saved[filename] = file_hash
+                    self._save_approved_hashes(saved)
 
         spec = importlib.util.spec_from_file_location(module_name, filepath)
         module = importlib.util.module_from_spec(spec)
@@ -237,6 +289,12 @@ def main():
                 continue
 
             try:
+                # 대화 히스토리 상한 (메모리 + 비용 보호)
+                if len(messages) > 50:
+                    messages[:] = messages[-50:]
+                    while messages and messages[0]["role"] != "user":
+                        messages.pop(0)
+
                 # 도구 호출이 연쇄적으로 발생할 수 있으므로 반복 처리 (최대 10회)
                 MAX_TOOL_ROUNDS = 10
                 tool_round = 0

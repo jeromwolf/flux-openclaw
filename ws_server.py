@@ -15,6 +15,7 @@ import re
 import sys
 import json
 import fcntl
+import hmac
 import asyncio
 import warnings
 from datetime import datetime, timedelta
@@ -206,8 +207,10 @@ class ChatbotServer:
         return origin_normalized in WS_ALLOWED_ORIGINS
 
     def _validate_token(self, token):
-        """인증 토큰 검증"""
-        return token == WS_AUTH_TOKEN
+        """인증 토큰 검증 (타이밍 공격 방지)"""
+        if not token:
+            return False
+        return hmac.compare_digest(token, WS_AUTH_TOKEN)
 
     async def _send_json(self, websocket, data):
         """JSON 메시지 전송 (비밀 마스킹 적용)"""
@@ -240,6 +243,12 @@ class ChatbotServer:
         messages.append({"role": "user", "content": user_message})
 
         try:
+            # 대화 히스토리 상한 (메모리 + 비용 보호)
+            if len(messages) > 50:
+                messages[:] = messages[-50:]
+                while messages and messages[0]["role"] != "user":
+                    messages.pop(0)
+
             # 도구 호출 반복 처리 (최대 10회)
             MAX_TOOL_ROUNDS = 10
             tool_round = 0
@@ -295,7 +304,7 @@ class ChatbotServer:
                         continue
 
                     try:
-                        result = fn(**tool_use.input)
+                        result = await asyncio.to_thread(fn, **tool_use.input)
                     except Exception:
                         result = "Error: 도구 실행 실패"
 
