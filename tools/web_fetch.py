@@ -1,3 +1,7 @@
+import ipaddress
+import re
+from urllib.parse import urlparse
+import socket
 import requests
 from bs4 import BeautifulSoup
 
@@ -17,58 +21,100 @@ SCHEMA = {
     },
 }
 
+MAX_RESPONSE_BYTES = 5 * 1024 * 1024  # 5MB
+
+
+def _is_private_ip(hostname):
+    """프라이빗/내부 IP 대역 차단"""
+    try:
+        ip = ipaddress.ip_address(hostname)
+        return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
+    except ValueError:
+        pass
+    try:
+        resolved = socket.getaddrinfo(hostname, None)
+        for _, _, _, _, addr in resolved:
+            ip = ipaddress.ip_address(addr[0])
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                return True
+    except (socket.gaierror, ValueError):
+        pass
+    return False
+
 
 def main(url, max_chars=3000):
-    """
-    Fetch the content of a web page and return it as clean text.
-
-    Args:
-        url: The URL to fetch
-        max_chars: Maximum number of characters to return (default: 3000)
-
-    Returns:
-        The cleaned text content of the page, truncated to max_chars
-    """
     try:
-        # Set headers to avoid being blocked
+        # URL 스킴 검증
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            return "Error: http 또는 https URL만 허용됩니다."
+        if not parsed.hostname:
+            return "Error: 유효한 호스트명이 필요합니다."
+
+        # SSRF: 프라이빗 IP 차단
+        if _is_private_ip(parsed.hostname):
+            return "Error: 내부 네트워크 주소는 접근할 수 없습니다."
+
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         }
 
-        # Fetch the URL with timeout
-        response = requests.get(url, headers=headers, timeout=10)
+        # 리다이렉트 수동 제어, 응답 크기 제한
+        response = requests.get(
+            url, headers=headers, timeout=10,
+            allow_redirects=False, stream=True,
+        )
+
+        # 리다이렉트 처리 (최대 5회, 대상 IP도 검증)
+        redirects = 0
+        while response.is_redirect and redirects < 5:
+            redirect_url = response.headers.get("Location", "")
+            rp = urlparse(redirect_url)
+            if rp.hostname and _is_private_ip(rp.hostname):
+                return "Error: 리다이렉트 대상이 내부 네트워크 주소입니다."
+            response = requests.get(
+                redirect_url, headers=headers, timeout=10,
+                allow_redirects=False, stream=True,
+            )
+            redirects += 1
+
         response.raise_for_status()
 
-        # Parse HTML
-        soup = BeautifulSoup(response.content, "html.parser")
+        # 응답 크기 제한
+        content_length = response.headers.get("Content-Length")
+        if content_length and int(content_length) > MAX_RESPONSE_BYTES:
+            return f"Error: 응답이 너무 큽니다 ({int(content_length) // 1024 // 1024}MB 초과)"
 
-        # Remove script, style, nav, footer, header tags
+        # 제한된 크기만 읽기
+        content = b""
+        for chunk in response.iter_content(chunk_size=8192):
+            content += chunk
+            if len(content) > MAX_RESPONSE_BYTES:
+                return "Error: 응답이 5MB를 초과합니다."
+        response.close()
+
+        soup = BeautifulSoup(content, "html.parser")
+
         for tag in soup(["script", "style", "nav", "footer", "header"]):
             tag.decompose()
 
-        # Extract text
         text = soup.get_text(separator="\n", strip=True)
-
-        # Clean up whitespace
         lines = [line.strip() for line in text.splitlines() if line.strip()]
         clean_text = "\n".join(lines)
 
-        # Truncate to max_chars
         if len(clean_text) > max_chars:
             clean_text = clean_text[:max_chars] + "...\n[내용이 잘렸습니다]"
 
         return clean_text
 
     except requests.exceptions.Timeout:
-        return f"Error: 요청 시간 초과 - URL이 응답하지 않습니다: {url}"
+        return "Error: 요청 시간 초과"
     except requests.exceptions.ConnectionError:
-        return f"Error: 연결 실패 - 네트워크 연결을 확인하세요: {url}"
+        return "Error: 연결 실패"
     except requests.exceptions.HTTPError as e:
-        return f"Error: HTTP 오류 {e.response.status_code} - {url}"
-    except requests.exceptions.InvalidURL:
-        return f"Error: 잘못된 URL 형식입니다: {url}"
-    except Exception as e:
-        return f"Error: {type(e).__name__}: {e}"
+        return f"Error: HTTP 오류 {e.response.status_code}"
+    except Exception:
+        return "Error: 웹 페이지를 가져올 수 없습니다."
 
 
 if __name__ == "__main__":

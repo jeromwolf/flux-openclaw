@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 SCHEMA = {
     "name": "save_text_file",
@@ -14,27 +15,45 @@ SCHEMA = {
 }
 
 
-PROTECTED_FILES = {".env", "main.py"}
+PROTECTED_FILES = {".env", "main.py", "instruction.md", ".gitignore", "requirements.txt", "security.md"}
+PROTECTED_DIRS = {"tools"}
 
 
 def main(path, content):
     try:
-        resolved = os.path.realpath(path)
-        cwd = os.path.realpath(".")
-        if not resolved.startswith(cwd + os.sep) and resolved != os.path.join(cwd, os.path.basename(path)):
+        cwd = Path(".").resolve()
+        resolved = Path(path).resolve()
+
+        # 심볼릭 링크 차단
+        if Path(path).is_symlink():
+            return "Error: 심볼릭 링크는 허용되지 않습니다."
+
+        # 워크스페이스 외부 접근 차단
+        if not resolved == cwd and not str(resolved).startswith(str(cwd) + os.sep):
             return "Error: 현재 디렉토리 범위 밖에는 저장할 수 없습니다."
-        if os.path.basename(resolved) in PROTECTED_FILES:
-            return f"Error: 보호된 파일입니다: {os.path.basename(resolved)}"
-        if os.path.exists(resolved):
+
+        # 보호 파일 체크
+        if resolved.name in PROTECTED_FILES:
+            return f"Error: 보호된 파일입니다: {resolved.name}"
+
+        # 보호 디렉토리 체크 (tools/ 내 기존 파일 덮어쓰기 방지)
+        try:
+            rel = resolved.relative_to(cwd)
+            if rel.parts and rel.parts[0] in PROTECTED_DIRS and resolved.exists():
+                return f"Error: 보호된 디렉토리의 기존 파일은 수정할 수 없습니다: {path}"
+        except ValueError:
+            pass
+
+        if resolved.exists():
             confirm = input(f"'{path}' 파일이 이미 존재합니다. 덮어쓰시겠습니까? (Y/N): ").strip().upper()
             if confirm != "Y":
                 return "저장 취소됨"
-        os.makedirs(os.path.dirname(resolved), exist_ok=True) if os.path.dirname(resolved) else None
-        with open(path, "w") as f:
-            f.write(content)
+
+        resolved.parent.mkdir(parents=True, exist_ok=True)
+        resolved.write_text(content)
         return f"저장 완료: {path}"
     except Exception as e:
-        return str(e)
+        return f"Error: 파일 저장 실패"
 
 
 if __name__ == "__main__":

@@ -1,3 +1,5 @@
+import re
+from urllib.parse import quote
 import requests
 
 SCHEMA = {
@@ -15,11 +17,18 @@ SCHEMA = {
     },
 }
 
+CITY_PATTERN = re.compile(r"^[a-zA-Z\u3131-\uD79D\s\-\.]+$")
+
 
 def main(city):
     try:
+        # 도시 이름 검증 (알파벳, 한글, 공백, 하이픈, 점만 허용)
+        if not CITY_PATTERN.match(city) or len(city) > 100:
+            return "Error: 유효하지 않은 도시 이름입니다."
+
+        safe_city = quote(city, safe="")
         resp = requests.get(
-            f"https://wttr.in/{city}?format=j1&lang=ko",
+            f"https://wttr.in/{safe_city}?format=j1&lang=ko",
             headers={"User-Agent": "curl/7.68.0"},
             timeout=10,
         )
@@ -58,9 +67,9 @@ def main(city):
         return "\n".join(lines)
 
     except requests.exceptions.Timeout:
-        return f"Error: 날씨 서버 응답 시간 초과"
-    except Exception as e:
-        return f"Error: {e}"
+        return "Error: 날씨 서버 응답 시간 초과"
+    except Exception:
+        return "Error: 날씨 정보를 가져올 수 없습니다."
 
 
 if __name__ == "__main__":

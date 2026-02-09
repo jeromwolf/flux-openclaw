@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 SCHEMA = {
     "name": "list_files",
@@ -15,16 +16,24 @@ SCHEMA = {
 
 def main(path):
     try:
-        resolved = os.path.realpath(path)
-        cwd = os.path.realpath(".")
-        if not resolved.startswith(cwd + os.sep) and resolved != cwd:
+        cwd = Path(".").resolve()
+        resolved = Path(path).resolve()
+
+        # 심볼릭 링크 차단
+        if Path(path).is_symlink():
+            return "Error: 심볼릭 링크는 허용되지 않습니다."
+
+        # 워크스페이스 외부 접근 차단
+        if not resolved == cwd and not str(resolved).startswith(str(cwd) + os.sep):
             return "Error: 현재 디렉토리의 하위 경로만 접근할 수 있습니다."
-        if not os.path.isdir(resolved):
+
+        if not resolved.is_dir():
             return f"Error: 디렉토리가 존재하지 않습니다: {path}"
+
         files = os.listdir(resolved)
         return str(files)
-    except Exception as e:
-        return str(e)
+    except Exception:
+        return "Error: 디렉토리를 조회할 수 없습니다."
 
 
 if __name__ == "__main__":

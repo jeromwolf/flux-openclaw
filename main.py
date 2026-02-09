@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import warnings
 import importlib.util
@@ -15,10 +16,25 @@ import anthropic
 
 load_dotenv()
 
+# 로그 마스킹 패턴
+_SECRET_RE = re.compile(r"(sk-ant-[a-zA-Z0-9_-]+|AIza[a-zA-Z0-9_-]+|sk-[a-zA-Z0-9_-]{20,})")
+
+
+def _mask_secrets(text):
+    return _SECRET_RE.sub("[REDACTED]", str(text))
+
 
 def log(f, role, message):
-    f.write(f"## {role} ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})\n\n{message}\n\n")
+    masked = _mask_secrets(message)
+    f.write(f"## {role} ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})\n\n{masked}\n\n")
     f.flush()
+
+
+_DANGEROUS_PATTERNS = [
+    r"\bos\.system\b", r"\bsubprocess\b", r"\beval\s*\(", r"\bexec\s*\(",
+    r"\b__import__\b", r"\bcompile\s*\(", r"\bglobals\s*\(", r"\bgetattr\s*\(",
+]
+_DANGEROUS_RE = re.compile("|".join(_DANGEROUS_PATTERNS))
 
 
 class ToolManager:
@@ -29,7 +45,8 @@ class ToolManager:
         self.schemas = []
         self.functions = {}
         self._file_mtimes = {}
-        self._load_all()
+        self._approved = set()  # 사용자 승인된 파일
+        self._load_all(first_load=True)
 
     def _scan_files(self):
         """tools/ 내 .py 파일의 {파일명: 수정시각} 반환"""
@@ -42,10 +59,27 @@ class ToolManager:
                 mtimes[fname] = os.path.getmtime(path)
         return mtimes
 
-    def _load_module(self, filename):
+    def _check_dangerous(self, filepath):
+        """위험 패턴 탐지. 발견된 패턴 목록 반환"""
+        with open(filepath, "r") as f:
+            code = f.read()
+        return _DANGEROUS_RE.findall(code)
+
+    def _load_module(self, filename, first_load=False):
         """단일 .py 파일을 로드하여 (schema, func) 또는 None 반환"""
         filepath = os.path.join(self.tools_dir, filename)
         module_name = filename[:-3]
+
+        # 새 파일이 추가된 경우: 위험 패턴 검사 + 사용자 승인
+        if not first_load and filename not in self._approved:
+            dangers = self._check_dangerous(filepath)
+            if dangers:
+                print(f" [보안 경고] {filename}에서 위험 패턴 발견: {dangers}")
+                confirm = input(f" {filename}을(를) 로드하시겠습니까? (Y/N): ").strip().upper()
+                if confirm != "Y":
+                    print(f" [도구 차단] {filename}")
+                    return None
+
         spec = importlib.util.spec_from_file_location(module_name, filepath)
         module = importlib.util.module_from_spec(spec)
         try:
@@ -54,16 +88,17 @@ class ToolManager:
             print(f" [도구 로드 실패] {filename}: {e}")
             return None
         if hasattr(module, "SCHEMA") and hasattr(module, "main"):
+            self._approved.add(filename)
             return module.SCHEMA, module.main
         return None
 
-    def _load_all(self):
+    def _load_all(self, first_load=False):
         """전체 도구 파일을 스캔하여 로드"""
         self.schemas = []
         self.functions = {}
         self._file_mtimes = self._scan_files()
         for fname in sorted(self._file_mtimes):
-            result = self._load_module(fname)
+            result = self._load_module(fname, first_load=first_load)
             if result:
                 schema, func = result
                 self.schemas.append(schema)
@@ -89,6 +124,8 @@ class ToolManager:
             print(f" [도구 삭제 감지] {', '.join(removed)}")
         if modified:
             print(f" [도구 수정 감지] {', '.join(modified)}")
+            # 수정된 파일은 재승인 필요
+            self._approved -= modified
 
         self._load_all()
         return True

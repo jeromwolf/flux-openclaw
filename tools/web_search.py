@@ -9,7 +9,7 @@ SCHEMA = {
             "query": {"type": "string", "description": "검색할 키워드 또는 질문"},
             "max_results": {
                 "type": "integer",
-                "description": "반환할 최대 검색 결과 수 (기본값: 5)",
+                "description": "반환할 최대 검색 결과 수 (기본값: 5, 최대: 20)",
             },
         },
         "required": ["query"],
@@ -19,6 +19,8 @@ SCHEMA = {
 
 def main(query, max_results=5):
     try:
+        max_results = min(int(max_results), 20)
+
         with DDGS() as ddgs:
             results = ddgs.text(query, backend="lite", max_results=max_results)
 
@@ -30,8 +32,8 @@ def main(query, max_results=5):
             output.append(f"{i}. {r['title']}\n   URL: {r['href']}\n   {r['body']}")
 
         return "\n\n".join(output)
-    except Exception as e:
-        return f"Error: {e}"
+    except Exception:
+        return "Error: 검색을 수행할 수 없습니다."
 
 
 if __name__ == "__main__":
