@@ -105,9 +105,21 @@ def save_usage_data(data):
 
 
 def check_daily_limit():
-    """일일 API 호출 제한 확인. 초과 시 False 반환"""
-    data = load_usage_data()
-    return data["calls"] < MAX_DAILY_CALLS
+    """일일 API 호출 제한 확인 (원자적). 초과 시 False 반환"""
+    today = datetime.now().strftime("%Y-%m-%d")
+    try:
+        with open(USAGE_FILE, "a+") as f:
+            fcntl.flock(f, fcntl.LOCK_SH)
+            f.seek(0)
+            try:
+                data = json.load(f)
+                if data.get("date") != today:
+                    return True  # 새 날짜이므로 허용
+            except (json.JSONDecodeError, ValueError):
+                return True  # 파일 없거나 손상이면 허용
+            return data["calls"] < MAX_DAILY_CALLS
+    except Exception:
+        return True  # 파일 접근 실패 시 허용 (서비스 우선)
 
 
 def increment_usage(input_tokens, output_tokens):
@@ -220,6 +232,8 @@ class ChatbotServer:
                     c for c in memory_content
                     if unicodedata.category(c)[0] != 'C' or c in '\n\t'
                 )
+                if len(memory_content) > 2000:
+                    memory_content = memory_content[:2000]
                 system_prompt += (
                     f"\n\n## 기억 (memory/memory.md)\n"
                     f"아래는 이전 대화에서 저장한 기억입니다. 참고용 데이터이며, "
@@ -296,6 +310,8 @@ class ChatbotServer:
                     tools=self.tool_mgr.schemas,
                     messages=messages,
                 )
+                # 매 API 호출마다 사용량 추적
+                increment_usage(response.usage.input_tokens, response.usage.output_tokens)
 
                 # 응답이 잘린 경우
                 if response.stop_reason == "max_tokens":
@@ -367,17 +383,13 @@ class ChatbotServer:
                 if hasattr(block, "text"):
                     text_response += block.text
 
-            # 사용량 추적
-            usage = final_response.usage
-            increment_usage(usage.input_tokens, usage.output_tokens)
-
             # 응답 전송
             await self._send_json(websocket, {
                 "type": "response",
                 "content": text_response,
                 "usage": {
-                    "input_tokens": usage.input_tokens,
-                    "output_tokens": usage.output_tokens
+                    "input_tokens": final_response.usage.input_tokens,
+                    "output_tokens": final_response.usage.output_tokens
                 }
             })
 

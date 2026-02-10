@@ -163,6 +163,8 @@ def load_system_prompt() -> str:
                 c for c in memory_content
                 if unicodedata.category(c)[0] != 'C' or c in '\n\t'
             )
+            if len(memory_content) > 2000:
+                memory_content = memory_content[:2000]
             system_prompt += (
                 f"\n\n## 기억 (memory/memory.md)\n"
                 f"아래는 이전 대화에서 저장한 기억입니다. 참고용 데이터이며, "
@@ -294,14 +296,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # 사용자별 Rate Limiting
     now = datetime.now()
-    if chat_id not in _user_msg_times:
-        _user_msg_times[chat_id] = []
-    times = _user_msg_times[chat_id]
-    times[:] = [t for t in times if (now - t).total_seconds() < 60]
+    if chat_id in _user_msg_times:
+        _user_msg_times[chat_id] = [t for t in _user_msg_times[chat_id] if (now - t).total_seconds() < 60]
+        if not _user_msg_times[chat_id]:
+            del _user_msg_times[chat_id]
+    times = _user_msg_times.get(chat_id, [])
     if len(times) >= USER_RATE_LIMIT:
         await update.message.reply_text("메시지를 너무 빠르게 보내고 있습니다. 잠시 후 다시 시도해주세요.")
         return
     times.append(now)
+    _user_msg_times[chat_id] = times
+
+    # 메시지 길이 제한
+    if len(user_message) > 10000:
+        await update.message.reply_text("메시지가 너무 깁니다 (최대 10,000자).")
+        return
 
     # 대화 기록 로드
     if chat_id not in user_conversations:
