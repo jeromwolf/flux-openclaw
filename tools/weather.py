@@ -17,7 +17,7 @@ SCHEMA = {
     },
 }
 
-CITY_PATTERN = re.compile(r"^[a-zA-Z\u3131-\uD79D\s\-\.]+$")
+CITY_PATTERN = re.compile(r"^[a-zA-Z\u3131-\u318E\uAC00-\uD7A3\s\-\.]+$")
 
 
 def main(city):

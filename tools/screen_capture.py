@@ -2,6 +2,8 @@ import os
 import datetime
 from pathlib import Path
 
+ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp"}
+
 SCHEMA = {
     "name": "screen_capture",
     "description": "화면을 캡처하여 이미지 파일로 저장합니다.",
@@ -35,6 +37,9 @@ def capture_screenshot(output_path=None):
             # 워크스페이스 외부 접근 차단
             if not resolved == cwd and not str(resolved).startswith(str(cwd) + os.sep):
                 return "Error: 현재 디렉토리 범위 밖에는 저장할 수 없습니다."
+            # 이미지 형식 검증
+            if resolved.suffix.lower() not in ALLOWED_IMAGE_EXTENSIONS:
+                return f"Error: 지원하지 않는 이미지 형식입니다. 허용: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}"
 
         screenshot = ImageGrab.grab()
         resolved.parent.mkdir(parents=True, exist_ok=True)

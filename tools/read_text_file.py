@@ -19,7 +19,7 @@ SECRET_PATTERNS = re.compile(
     r"|ghp_[a-zA-Z0-9]{36,}|glpat-[a-zA-Z0-9_-]{20,}"
     r"|xox[bpsa]-[a-zA-Z0-9-]{10,})"
 )
-BLOCKED_FILES = {".env", ".env.local", ".env.production", ".env.development", "log.md", ".tool_approved.json"}
+BLOCKED_FILES = {".env", ".env.local", ".env.production", ".env.development", "log.md", ".tool_approved.json", "usage_data.json"}
 BLOCKED_DIRS = {"history"}
 
 

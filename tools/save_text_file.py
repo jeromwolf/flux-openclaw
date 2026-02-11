@@ -42,11 +42,11 @@ def main(path, content):
         if resolved.name.lower() in PROTECTED_FILES:
             return f"Error: 보호된 파일입니다: {resolved.name}"
 
-        # 보호 디렉토리 체크 (tools/ 내 기존 파일 덮어쓰기 방지)
+        # 보호 디렉토리 체크 (tools/ 내 파일 생성·수정 전면 차단)
         try:
             rel = resolved.relative_to(cwd)
-            if rel.parts and rel.parts[0] in PROTECTED_DIRS and resolved.exists():
-                return f"Error: 보호된 디렉토리의 기존 파일은 수정할 수 없습니다: {path}"
+            if rel.parts and rel.parts[0] in PROTECTED_DIRS:
+                return f"Error: 보호된 디렉토리에는 파일을 생성하거나 수정할 수 없습니다: {path}"
         except ValueError:
             pass
 
@@ -58,7 +58,15 @@ def main(path, content):
                 return "저장 취소됨"
 
         resolved.parent.mkdir(parents=True, exist_ok=True)
-        resolved.write_text(content)
+        # O_NOFOLLOW: 심볼릭 링크 추종 방지 (TOCTOU 방지)
+        try:
+            fd = os.open(str(resolved), os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o644)
+            with os.fdopen(fd, 'w') as f:
+                f.write(content)
+        except OSError as e:
+            if e.errno == 40:  # ELOOP - symlink detected
+                return "Error: 심볼릭 링크는 허용되지 않습니다."
+            raise
         return f"저장 완료: {path}"
     except Exception as e:
         return f"Error: 파일 저장 실패"

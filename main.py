@@ -51,6 +51,8 @@ _DANGEROUS_PATTERNS = [
     r"\bos\.remove\b", r"\bos\.unlink\b", r"\bos\.rename\b", r"\bos\.chmod\b",
     r"\bos\.listdir\b", r"\bos\.walk\b", r"\bos\.scandir\b",
     r"\bopen\s*\(",
+    r"\bvars\s*\(", r"\btype\s*\(", r"\bbreakpoint\s*\(",
+    r"\bdir\s*\(", r"\blocals\s*\(",
 ]
 _DANGEROUS_RE = re.compile("|".join(_DANGEROUS_PATTERNS))
 
@@ -90,13 +92,17 @@ class ToolManager:
             "webbrowser", "http", "multiprocessing", "threading", "signal", "atexit",
             "zipfile", "tarfile", "xml", "urllib", "tempfile", "sys",
             "glob", "pathlib", "requests", "httpx", "aiohttp", "urllib3",
+            "pdb",
         }
         _BLOCKED_ATTRS = {"__builtins__", "__code__", "__class__", "__subclasses__", "__globals__"}
         _BLOCKED_CALLS = {
             "os.remove", "os.unlink", "os.rename", "os.chmod", "os.rmdir", "os.makedirs",
             "os.environ", "os.getenv", "os.listdir", "os.walk", "os.scandir",
         }
-        _BLOCKED_BUILTINS = {"open", "exec", "eval", "compile", "getattr", "__import__"}
+        _BLOCKED_BUILTINS = {
+            "open", "exec", "eval", "compile", "getattr", "__import__",
+            "type", "vars", "locals", "dir", "breakpoint", "memoryview",
+        }
         try:
             tree = ast.parse(code)
         except SyntaxError:
@@ -230,12 +236,23 @@ class ToolManager:
         return True
 
 
+_TYPE_MAP = {"string": str, "integer": int, "number": (int, float), "boolean": bool}
+
 def _filter_tool_input(tool_input, schema):
-    """도구 입력을 스키마에 정의된 키로만 필터링"""
+    """도구 입력을 스키마에 정의된 키로만 필터링 + 타입 검증"""
     properties = schema.get("input_schema", {}).get("properties", {})
     if not properties:
         return tool_input
-    return {k: v for k, v in tool_input.items() if k in properties}
+    filtered = {}
+    for k, v in tool_input.items():
+        if k not in properties:
+            continue
+        expected_type = properties[k].get("type")
+        if expected_type and expected_type in _TYPE_MAP:
+            if not isinstance(v, _TYPE_MAP[expected_type]):
+                continue  # 타입 불일치 → 무시
+        filtered[k] = v
+    return filtered
 
 
 def main():
@@ -431,12 +448,16 @@ def main():
                             result = fn(**filtered_input)
                         except Exception:
                             result = "Error: 도구 실행 실패"
-                        tool_message = f"[도구 실행 결과] {tool_use.name}({tool_use.input}) => {result}"
+                        input_summary = str(tool_use.input)[:200]
+                        result_summary = str(result)[:500]
+                        tool_message = f"[도구 실행 결과] {tool_use.name}({input_summary}) => {result_summary}"
                         log(f, "Tool->Claude", tool_message)
+                        # 도구 출력 내 경계 마커 이스케이프 (간접 프롬프트 인젝션 방지)
+                        safe_result = str(result).replace("[TOOL OUTPUT]", "[TOOL_OUTPUT]").replace("[/TOOL OUTPUT]", "[/TOOL_OUTPUT]")
                         tool_results.append({
                             "type": "tool_result",
                             "tool_use_id": tool_use.id,
-                            "content": f"[TOOL OUTPUT]\n{result}\n[/TOOL OUTPUT]",
+                            "content": f"[TOOL OUTPUT]\n{safe_result}\n[/TOOL OUTPUT]",
                         })
 
                     messages.append({"role": "user", "content": tool_results})

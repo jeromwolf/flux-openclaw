@@ -55,6 +55,9 @@ if not WS_AUTH_TOKEN:
     print("오류: WS_AUTH_TOKEN 환경변수가 설정되지 않았습니다.")
     print(".env 파일에 WS_AUTH_TOKEN=your-secret-token 을 추가하세요.")
     sys.exit(1)
+if len(WS_AUTH_TOKEN) < 32:
+    print("오류: WS_AUTH_TOKEN이 너무 짧습니다 (최소 32자 필요).")
+    sys.exit(1)
 
 WS_ALLOWED_ORIGINS = os.environ.get(
     "WS_ALLOWED_ORIGINS",
@@ -64,6 +67,14 @@ WS_ALLOWED_ORIGINS = [origin.strip() for origin in WS_ALLOWED_ORIGINS]
 
 WS_PORT = int(os.environ.get("WS_PORT", "8765"))
 WS_HOST = os.environ.get("WS_HOST", "127.0.0.1")
+
+# 보안 경고: 비-로컬 바인딩 감지
+if WS_HOST not in ("127.0.0.1", "::1", "localhost"):
+    print(f" [보안 경고] WS_HOST={WS_HOST} — 로컬이 아닌 주소에 바인딩됩니다!")
+    print(f" [보안 경고] 외부 네트워크에서 AI 에이전트에 접근할 수 있습니다.")
+    if not os.environ.get("WS_ALLOW_REMOTE"):
+        print(f" [보안 경고] 허용하려면 WS_ALLOW_REMOTE=true를 설정하세요.")
+        sys.exit(1)
 
 # Rate Limiting 설정
 RATE_LIMIT_MAX_MESSAGES = 30  # 분당 최대 메시지 수
@@ -183,12 +194,23 @@ class RateLimiter:
             del self.message_times[cid]
 
 
+_TYPE_MAP = {"string": str, "integer": int, "number": (int, float), "boolean": bool}
+
 def _filter_tool_input(tool_input, schema):
-    """도구 입력을 스키마에 정의된 키로만 필터링"""
+    """도구 입력을 스키마에 정의된 키로만 필터링 + 타입 검증"""
     properties = schema.get("input_schema", {}).get("properties", {})
     if not properties:
         return tool_input
-    return {k: v for k, v in tool_input.items() if k in properties}
+    filtered = {}
+    for k, v in tool_input.items():
+        if k not in properties:
+            continue
+        expected_type = properties[k].get("type")
+        if expected_type and expected_type in _TYPE_MAP:
+            if not isinstance(v, _TYPE_MAP[expected_type]):
+                continue
+        filtered[k] = v
+    return filtered
 
 
 # === WebSocket 서버 ===
@@ -360,10 +382,11 @@ class ChatbotServer:
                     except Exception:
                         result = "Error: 도구 실행 실패"
 
+                    safe_result = str(result).replace("[TOOL OUTPUT]", "[TOOL_OUTPUT]").replace("[/TOOL OUTPUT]", "[/TOOL_OUTPUT]")
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": tool_use.id,
-                        "content": f"[TOOL OUTPUT]\n{result}\n[/TOOL OUTPUT]",
+                        "content": f"[TOOL OUTPUT]\n{safe_result}\n[/TOOL OUTPUT]",
                     })
 
                 messages.append({"role": "user", "content": tool_results})

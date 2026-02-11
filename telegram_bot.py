@@ -99,17 +99,22 @@ def save_usage_data(data: dict):
 
 
 def check_daily_limit() -> tuple[bool, int, int]:
-    """일일 API 호출 제한 확인. (허용 여부, 현재 호출 수, 최대 호출 수) 반환"""
-    usage = load_usage_data()
+    """일일 API 호출 제한 확인 (원자적 잠금). (허용 여부, 현재 호출 수, 최대 호출 수) 반환"""
     today = datetime.now().strftime("%Y-%m-%d")
-
-    # 날짜가 바뀌면 초기화
-    if usage.get("date") != today:
-        usage = {"date": today, "calls": 0, "input_tokens": 0, "output_tokens": 0}
-        save_usage_data(usage)
-
-    current_calls = usage.get("calls", 0)
-    return current_calls < MAX_DAILY_CALLS, current_calls, MAX_DAILY_CALLS
+    try:
+        with open(USAGE_DATA_FILE, "a+") as f:
+            fcntl.flock(f, fcntl.LOCK_SH)
+            f.seek(0)
+            try:
+                usage = json.load(f)
+                if usage.get("date") != today:
+                    return True, 0, MAX_DAILY_CALLS
+            except (json.JSONDecodeError, ValueError):
+                return True, 0, MAX_DAILY_CALLS
+            current_calls = usage.get("calls", 0)
+            return current_calls < MAX_DAILY_CALLS, current_calls, MAX_DAILY_CALLS
+    except Exception:
+        return True, 0, MAX_DAILY_CALLS
 
 
 def increment_usage(input_tokens: int, output_tokens: int):
@@ -135,12 +140,23 @@ def increment_usage(input_tokens: int, output_tokens: int):
         logger.error(" [경고] 사용량 파일 업데이트 실패")
 
 
+_TYPE_MAP = {"string": str, "integer": int, "number": (int, float), "boolean": bool}
+
 def _filter_tool_input(tool_input, schema):
-    """도구 입력을 스키마에 정의된 키로만 필터링"""
+    """도구 입력을 스키마에 정의된 키로만 필터링 + 타입 검증"""
     properties = schema.get("input_schema", {}).get("properties", {})
     if not properties:
         return tool_input
-    return {k: v for k, v in tool_input.items() if k in properties}
+    filtered = {}
+    for k, v in tool_input.items():
+        if k not in properties:
+            continue
+        expected_type = properties[k].get("type")
+        if expected_type and expected_type in _TYPE_MAP:
+            if not isinstance(v, _TYPE_MAP[expected_type]):
+                continue
+        filtered[k] = v
+    return filtered
 
 
 def load_system_prompt() -> str:
@@ -187,6 +203,8 @@ def is_tool_allowed(tool_name: str) -> bool:
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """시작 명령어"""
+    if not update.message:
+        return
     chat_id = update.effective_chat.id
 
     if chat_id not in ALLOWED_CHAT_IDS:
@@ -207,6 +225,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """도움말 명령어"""
+    if not update.message:
+        return
     chat_id = update.effective_chat.id
 
     if chat_id not in ALLOWED_CHAT_IDS:
@@ -230,6 +250,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """대화 기록 초기화"""
+    if not update.message:
+        return
     chat_id = update.effective_chat.id
 
     if chat_id not in ALLOWED_CHAT_IDS:
@@ -244,6 +266,8 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def usage_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """API 사용량 확인"""
+    if not update.message:
+        return
     chat_id = update.effective_chat.id
 
     if chat_id not in ALLOWED_CHAT_IDS:
@@ -275,6 +299,8 @@ async def usage_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """일반 메시지 처리"""
+    if not update.message:
+        return
     chat_id = update.effective_chat.id
 
     # 허용되지 않은 사용자 무시
@@ -421,10 +447,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     filtered_input = _filter_tool_input(tool_use.input, tool_schema) if tool_schema else tool_use.input
                     result = await asyncio.to_thread(fn, **filtered_input)
                     logger.info(f" [도구] 결과: {_mask_secrets(str(result)[:100])}...")
+                    safe_result = str(result).replace("[TOOL OUTPUT]", "[TOOL_OUTPUT]").replace("[/TOOL OUTPUT]", "[/TOOL_OUTPUT]")
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": tool_use.id,
-                        "content": f"[TOOL OUTPUT]\n{result}\n[/TOOL OUTPUT]",
+                        "content": f"[TOOL OUTPUT]\n{safe_result}\n[/TOOL OUTPUT]",
                     })
                 except Exception as e:
                     logger.error(f" [도구] 실행 실패: {tool_name} - {_mask_secrets(str(e))}")
