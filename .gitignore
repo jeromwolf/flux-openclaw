@@ -10,4 +10,5 @@ usage_data.json
 history/
 .tool_approved.json
 data/
+logs/
 .coverage
