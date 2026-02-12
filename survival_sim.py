@@ -191,6 +191,9 @@ class SurvivalSimulator:
     가상 자금으로 트레이딩을 시뮬레이션하고 P&L을 추적합니다.
     """
 
+    # 최소 잔액 - 이 이하로 내려가면 트레이딩 중단
+    MIN_BALANCE = 10.0
+
     def __init__(self, initial_balance: float = 50.0, db_path: str = "data/survival_sim.db"):
         """시뮬레이터 초기화
 
@@ -373,12 +376,15 @@ class SurvivalSimulator:
 
         시뮬레이션에서는 추정 확률에 기반하여 무작위로 해결합니다.
         예: 추정 확률 70%이면 70% 승리 확률
+
+        이전 사이클의 모든 오픈 거래를 즉시 해결합니다.
+        (현재 사이클에서 새로 생성된 거래는 다음 사이클에서 해결)
         """
         with self.db_lock:
             conn = sqlite3.connect(self.db_path)
             try:
-                # 1시간 이상 지난 오픈 거래 조회
-                cutoff_time = (datetime.now() - timedelta(hours=1)).isoformat()
+                # 현재 시점 이전의 모든 오픈 거래 조회 (이전 사이클 거래)
+                cutoff_time = datetime.now().isoformat()
                 cursor = conn.execute("""
                     SELECT id, side, amount, entry_price, estimated_prob, market_question
                     FROM sim_trades
@@ -453,8 +459,8 @@ class SurvivalSimulator:
 
         current_balance = self.get_balance()
 
-        if current_balance <= 0:
-            logger.error("💀 잔액 $0 - 에이전트 사망!")
+        if current_balance <= self.MIN_BALANCE:
+            logger.error(f"💀 잔액 ${current_balance:.2f} (최소 ${self.MIN_BALANCE}) - 트레이딩 중단!")
             return
 
         logger.info(f"현재 잔액: ${current_balance:.2f}")
@@ -476,8 +482,10 @@ class SurvivalSimulator:
         )
         logger.info(f"{len(opportunities)}개 기회 발견")
 
-        # API 비용 추정 (시장당 ~$0.08)
-        api_cost = len(markets) * self.estimator.api_cost_per_call
+        # API 비용 추정
+        # 시뮬레이션 모드: Claude 호출 없이 노이즈 기반 추정 → 사이클당 고정 $0.10
+        # 실전 모드: 마켓당 Claude 호출 → len(markets) * $0.08
+        api_cost = 0.10  # 시뮬레이션 모드 고정 비용
 
         # 3. 상위 기회에 거래
         trades_placed = 0
@@ -636,31 +644,23 @@ class SurvivalSimulator:
 
                 win_rate = (won_trades / (won_trades + lost_trades) * 100) if (won_trades + lost_trades) > 0 else 0
 
-                # API 비용
+                # API 비용 (사이클 테이블에서 합계)
                 cursor = conn.execute(
-                    "SELECT SUM(CAST(detail AS REAL)) FROM sim_balance_log WHERE event = 'api_cost'"
+                    "SELECT COALESCE(SUM(api_cost_estimate), 0) FROM sim_cycles"
                 )
-                # API 비용은 detail에 "API 호출 비용: $X.XX" 형식으로 저장되므로 파싱 필요
-                cursor = conn.execute("""
-                    SELECT balance FROM sim_balance_log
-                    WHERE event = 'initial'
-                    ORDER BY id ASC LIMIT 1
-                """)
-                start_balance = cursor.fetchone()
-                start_balance = start_balance[0] if start_balance else 0
+                api_cost_total = cursor.fetchone()[0]
 
-                cursor = conn.execute("""
-                    SELECT balance FROM sim_balance_log
-                    WHERE event = 'api_cost'
-                    ORDER BY id DESC LIMIT 1
-                """)
-
-                # 간단히 추정: (초기 - 현재 - 거래 P&L)
-                cursor = conn.execute("SELECT COALESCE(SUM(pnl), 0) FROM sim_trades WHERE status IN ('won', 'lost')")
+                # 거래 P&L 합계
+                cursor = conn.execute(
+                    "SELECT COALESCE(SUM(pnl), 0) FROM sim_trades WHERE status IN ('won', 'lost')"
+                )
                 total_trade_pnl = cursor.fetchone()[0]
 
-                api_cost_estimate = start_balance - current_balance - total_trade_pnl
-                api_cost_estimate = max(0, api_cost_estimate)  # 음수 방지
+                # 오픈 거래 총 금액 (아직 resolve 안 된 베팅)
+                cursor = conn.execute(
+                    "SELECT COALESCE(SUM(amount), 0) FROM sim_trades WHERE status = 'open'"
+                )
+                open_trade_amount = cursor.fetchone()[0]
 
                 # 가동 시간
                 cursor = conn.execute(
@@ -682,6 +682,8 @@ class SurvivalSimulator:
                 last_cycle = cursor.fetchone()
                 last_cycle_time = last_cycle[0] if last_cycle else "N/A"
 
+                open_trades = total_trades - won_trades - lost_trades
+
                 return {
                     'balance': current_balance,
                     'initial_balance': initial_balance,
@@ -690,9 +692,13 @@ class SurvivalSimulator:
                     'total_trades': total_trades,
                     'won_trades': won_trades,
                     'lost_trades': lost_trades,
+                    'open_trades': open_trades,
                     'win_rate': win_rate,
-                    'api_cost': api_cost_estimate,
-                    'alive': current_balance > 0,
+                    'trade_pnl': total_trade_pnl,
+                    'api_cost': api_cost_total,
+                    'open_amount': open_trade_amount,
+                    'alive': current_balance > self.MIN_BALANCE,
+                    'min_balance': self.MIN_BALANCE,
                     'uptime': uptime,
                     'last_cycle': last_cycle_time
                 }
@@ -701,25 +707,32 @@ class SurvivalSimulator:
                 conn.close()
 
     def is_alive(self) -> bool:
-        """생존 확인 (잔액 > 0)"""
-        return self.get_balance() > 0
+        """생존 확인 (잔액 > 최소 잔액)"""
+        return self.get_balance() > self.MIN_BALANCE
 
     def print_status(self):
         """상태를 콘솔에 출력"""
         status = self.get_status()
 
-        print("\n" + "="*50)
-        print("          SURVIVAL MODE STATUS")
-        print("="*50)
-        print(f"Balance:      ${status['balance']:.2f} (started: ${status['initial_balance']:.2f})")
-        print(f"P&L:          ${status['pnl']:+.2f} ({status['pnl_pct']:+.1f}%)")
-        print(f"Trades:       {status['total_trades']} (Won: {status['won_trades']}, Lost: {status['lost_trades']})")
-        print(f"Win Rate:     {status['win_rate']:.1f}%")
-        print(f"API Cost:     ~${status['api_cost']:.2f}")
-        print(f"Alive:        {'YES ✅' if status['alive'] else 'NO 💀'}")
-        print(f"Uptime:       {status['uptime']}")
-        print(f"Last Cycle:   {status['last_cycle']}")
-        print("="*50 + "\n")
+        print("\n" + "="*55)
+        print("            SURVIVAL MODE STATUS")
+        print("="*55)
+        print(f"  Balance:      ${status['balance']:.2f} (started: ${status['initial_balance']:.2f})")
+        print(f"  Min Balance:  ${status['min_balance']:.2f} (이하 시 트레이딩 중단)")
+        print(f"  P&L:          ${status['pnl']:+.2f} ({status['pnl_pct']:+.1f}%)")
+        print(f"  Trade P&L:    ${status['trade_pnl']:+.2f}")
+        print(f"  API Cost:     ${status['api_cost']:.2f}")
+        print("-"*55)
+        print(f"  Total Trades: {status['total_trades']}")
+        print(f"    Won:        {status['won_trades']}")
+        print(f"    Lost:       {status['lost_trades']}")
+        print(f"    Open:       {status['open_trades']} (${status['open_amount']:.2f} 베팅중)")
+        print(f"  Win Rate:     {status['win_rate']:.1f}%")
+        print("-"*55)
+        print(f"  Alive:        {'YES ✅' if status['alive'] else 'STOPPED 🛑'}")
+        print(f"  Uptime:       {status['uptime']}")
+        print(f"  Last Cycle:   {status['last_cycle']}")
+        print("="*55 + "\n")
 
 
 def main():
@@ -779,7 +792,7 @@ def main():
                 simulator.run_cycle()
 
                 if not simulator.is_alive():
-                    logger.error("💀 잔액 $0 도달 - 에이전트 사망!")
+                    logger.error(f"💀 잔액 ${simulator.get_balance():.2f} (최소 ${SurvivalSimulator.MIN_BALANCE}) - 트레이딩 중단!")
                     simulator.print_status()
                     break
 
