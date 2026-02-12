@@ -57,17 +57,17 @@ SERVICES = {
         "daemonizable": True,
     },
     "telegram": {
-        "script": "telegram_bot.py",
+        "script": "bots/telegram_bot.py",
         "desc": "텔레그램 봇",
         "daemonizable": True,
     },
     "discord": {
-        "script": "discord_bot.py",
+        "script": "bots/discord_bot.py",
         "desc": "Discord 봇",
         "daemonizable": True,
     },
     "slack": {
-        "script": "slack_bot.py",
+        "script": "bots/slack_bot.py",
         "desc": "Slack 봇",
         "daemonizable": True,
     },

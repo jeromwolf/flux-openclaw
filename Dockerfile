@@ -20,6 +20,9 @@ COPY --from=deps /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY *.py ./
+COPY openclaw/ openclaw/
+COPY bots/ bots/
+COPY trading/ trading/
 COPY tools/ tools/
 COPY marketplace/ marketplace/
 COPY memory/ memory/
