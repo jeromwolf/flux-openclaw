@@ -60,7 +60,8 @@ python3 telegram_bot.py
 
 ```
 flux-openclaw/
-├── main.py                 # CLI 에이전트 (ToolManager + 대화 루프)
+├── core.py                 # 공유 엔진 (ToolManager, 보안, 사용량 추적)
+├── main.py                 # CLI 에이전트 (대화 루프)
 ├── ws_server.py            # WebSocket 서버 인터페이스
 ├── telegram_bot.py         # 텔레그램 봇 인터페이스
 ├── tools/                  # 도구 폴더 (자동 로딩)
@@ -74,6 +75,13 @@ flux-openclaw/
 │   ├── screen_capture.py   # 스크린 캡처
 │   ├── add_two_numbers.py  # 덧셈
 │   └── multiply_two_numbers.py # 곱셈
+├── tests/                  # 테스트 스위트
+│   ├── test_tool_manager.py    # 보안 스캐너 테스트
+│   ├── test_path_security.py   # 경로 보안 테스트
+│   ├── test_filter_tool_input.py # 입력 필터링 테스트
+│   └── test_usage.py           # 사용량 추적 테스트
+├── docs/
+│   └── ARCHITECTURE.md     # 아키텍처 문서
 ├── memory/
 │   ├── instruction.md      # 시스템 프롬프트
 │   └── memory.md           # 영속 메모리 (AI가 읽고 쓰기)
@@ -156,6 +164,18 @@ OpenClaw의 보안 사고를 분석하여 동일 취약점을 방지하는 심�
 | **비용 보호** | 일일 100회 API 호출 상한 + 토큰 사용량 추적 |
 
 자세한 내용은 [security.md](security.md) 참고.
+
+## 테스트
+
+```bash
+# 전체 테스트 실행
+pytest tests/ -v
+
+# 보안 스캐너 테스트만
+pytest tests/test_tool_manager.py -v
+```
+
+자세한 아키텍처 정보는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 참고.
 
 ## 환경 변수
 

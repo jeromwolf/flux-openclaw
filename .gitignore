@@ -9,3 +9,5 @@ screenshots/
 usage_data.json
 history/
 .tool_approved.json
+data/
+.coverage

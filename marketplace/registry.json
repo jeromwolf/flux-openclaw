@@ -1,0 +1,176 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-02-11T00:00:00Z",
+  "tools": [
+    {
+      "name": "unit_converter",
+      "filename": "unit_converter.py",
+      "description": "단위 변환 도구 (길이, 무게, 온도, 부피, 속도)",
+      "version": "1.0.0",
+      "author": "flux-openclaw",
+      "category": "utility",
+      "tags": ["math", "conversion", "unit"],
+      "dependencies": [],
+      "sha256": "ff81a13c35a7e569f05d6973009fcea0d985a7f162235d16da0f32e51194a1d4",
+      "security_level": "safe",
+      "source": "builtin",
+      "schema_preview": {
+        "name": "unit_convert",
+        "params": ["value", "from_unit", "to_unit"]
+      }
+    },
+    {
+      "name": "json_formatter",
+      "filename": "json_formatter.py",
+      "description": "JSON 정리/포맷팅 도구 (prettify, minify, 키 정렬, 경로 추출)",
+      "version": "1.0.0",
+      "author": "flux-openclaw",
+      "category": "utility",
+      "tags": ["json", "format", "parse"],
+      "dependencies": [],
+      "sha256": "a0c7370223316b8c53766e198f9b64633478119e783e4ef4e727584ac2e049c8",
+      "security_level": "safe",
+      "source": "builtin",
+      "schema_preview": {
+        "name": "json_format",
+        "params": ["json_string", "action", "indent", "path"]
+      }
+    },
+    {
+      "name": "text_translator",
+      "filename": "text_translator.py",
+      "description": "텍스트 변환 도구 (ROT13, 모스부호, 대소문자 변환, 역순, 공백 제거)",
+      "version": "1.0.0",
+      "author": "flux-openclaw",
+      "category": "text",
+      "tags": ["text", "encoding", "cipher", "morse"],
+      "dependencies": [],
+      "sha256": "f9b5d33a177dc309be672d25faf44a2d1594967e120d87fa410f02479545912b",
+      "security_level": "safe",
+      "source": "builtin",
+      "schema_preview": {
+        "name": "text_translate",
+        "params": ["text", "mode"]
+      }
+    },
+    {
+      "name": "csv_parser",
+      "filename": "csv_parser.py",
+      "description": "CSV 문자열 파싱 도구 (행/열 추출, 통계, 파일 I/O 없음)",
+      "version": "1.0.0",
+      "author": "flux-openclaw",
+      "category": "data",
+      "tags": ["csv", "parse", "data", "statistics"],
+      "dependencies": [],
+      "sha256": "e249081d81cd62a60d33d751a1d205a38cb97b9821c38d748a04c01fb301d50e",
+      "security_level": "safe",
+      "source": "builtin",
+      "schema_preview": {
+        "name": "csv_parse",
+        "params": ["csv_string", "action", "delimiter", "index", "has_header"]
+      }
+    },
+    {
+      "name": "timer",
+      "filename": "timer.py",
+      "description": "시간 계산 도구 (날짜 차이, 시간 단위 변환, 포맷 변환, 요일 조회)",
+      "version": "1.0.0",
+      "author": "flux-openclaw",
+      "category": "utility",
+      "tags": ["time", "date", "calendar", "conversion"],
+      "dependencies": [],
+      "sha256": "b8245e163b6ce25564eac8ff833b3ed5429c1eac5f9b1618d965f15a40efe450",
+      "security_level": "safe",
+      "source": "builtin",
+      "schema_preview": {
+        "name": "time_calc",
+        "params": ["action", "date1", "date2", "value", "from_unit", "to_unit", "format", "days"]
+      }
+    },
+    {
+      "name": "random_generator",
+      "filename": "random_generator.py",
+      "description": "랜덤 값 생성 도구 (정수, 실수, 문자열, 비밀번호, 랜덤 ID, 주사위)",
+      "version": "1.0.0",
+      "author": "flux-openclaw",
+      "category": "utility",
+      "tags": ["random", "generator", "password", "id"],
+      "dependencies": [],
+      "sha256": "3b6aea449f62c78f48e9f98a8cc45aae411a2f8dcc9acce26b746a3d6cf6aa14",
+      "security_level": "safe",
+      "source": "builtin",
+      "schema_preview": {
+        "name": "random_generate",
+        "params": ["action", "min_val", "max_val", "length", "count", "items", "include_special"]
+      }
+    },
+    {
+      "name": "base_converter",
+      "filename": "base_converter.py",
+      "description": "진법 변환 도구 (2진, 8진, 10진, 16진, 임의 진법 2-36)",
+      "version": "1.0.0",
+      "author": "flux-openclaw",
+      "category": "math",
+      "tags": ["math", "conversion", "binary", "hex", "octal"],
+      "dependencies": [],
+      "sha256": "7d49f9bb88291ab242784e930a4b40e67c2dbb761425feea9df459ccc166e9cf",
+      "security_level": "safe",
+      "source": "builtin",
+      "schema_preview": {
+        "name": "base_convert",
+        "params": ["value", "from_base", "to_base", "action"]
+      }
+    },
+    {
+      "name": "text_stats",
+      "filename": "text_stats.py",
+      "description": "텍스트 통계 도구 (글자수, 단어수, 문장수, 평균 단어길이, 최빈 단어, 가독성)",
+      "version": "1.0.0",
+      "author": "flux-openclaw",
+      "category": "text",
+      "tags": ["text", "statistics", "analysis", "count"],
+      "dependencies": [],
+      "sha256": "5a17cba16ce15bb685841f267e81e491ff3caf0c09ccc78231add9e8063b521a",
+      "security_level": "safe",
+      "source": "builtin",
+      "schema_preview": {
+        "name": "text_statistics",
+        "params": ["text", "action", "top_n"]
+      }
+    },
+    {
+      "name": "color_converter",
+      "filename": "color_converter.py",
+      "description": "색상 변환 도구 (HEX, RGB, HSL 상호 변환, CSS 색상명 지원)",
+      "version": "1.0.0",
+      "author": "flux-openclaw",
+      "category": "design",
+      "tags": ["color", "hex", "rgb", "hsl", "css", "design"],
+      "dependencies": [],
+      "sha256": "dd8d74977397675675c1065cdce6bd4f2377f7ab29f16380722262ff5cd212c2",
+      "security_level": "safe",
+      "source": "builtin",
+      "schema_preview": {
+        "name": "color_convert",
+        "params": ["color", "to_format"]
+      }
+    },
+    {
+      "name": "hash_generator",
+      "filename": "hash_generator.py",
+      "description": "해시 생성 도구 (MD5, SHA-1, SHA-256, SHA-512)",
+      "version": "1.0.0",
+      "author": "flux-openclaw",
+      "category": "security",
+      "tags": ["hash", "md5", "sha", "security", "checksum"],
+      "dependencies": [],
+      "sha256": "6c9fe88ee64c840993d6cbceb32d58e48d19f7de17eb9f9b6ea22ed487a54ada",
+      "security_level": "safe",
+      "source": "builtin",
+      "schema_preview": {
+        "name": "hash_generate",
+        "params": ["text", "algorithm", "encoding", "uppercase"]
+      }
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+version: "3.8"
+
+services:
+  flux-openclaw:
+    build: .
+    container_name: flux-openclaw
+    ports:
+      - "8765:8765"   # WebSocket
+      - "8080:8080"   # Dashboard
+      - "8766:8766"   # Health
+    volumes:
+      - flux-data:/app/data
+      - flux-logs:/app/logs
+      - flux-backups:/app/backups
+      - flux-memory:/app/memory
+      - flux-knowledge:/app/knowledge
+    env_file:
+      - .env
+    environment:
+      - WS_HOST=0.0.0.0
+      - WS_ALLOW_REMOTE=true
+      - DASHBOARD_HOST=0.0.0.0
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8766/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  flux-data:
+  flux-logs:
+  flux-backups:
+  flux-memory:
+  flux-knowledge:

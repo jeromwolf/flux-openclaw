@@ -7,3 +7,31 @@ pygame>=2.6.0
 pillow>=10.4.0
 websockets>=12.0
 python-telegram-bot>=21.0
+
+# --- Phase 3: 선택적 의존성 ---
+# Multi-LLM (필요한 것만 설치)
+# openai>=1.0.0
+# google-generativeai>=0.8.0
+
+# Discord 봇 (discord_bot.py 사용 시)
+# discord.py>=2.3.0
+
+# Slack 봇 (slack_bot.py 사용 시)
+# slack-bolt>=1.18.0
+
+# --- Phase 4: 선택적 의존성 ---
+# 브라우저 자동화 (browser_tool.py 사용 시)
+# playwright>=1.40.0
+# 설치 후: python -m playwright install chromium
+
+# --- Phase 5: 추가 의존성 없음 ---
+# 웹 대시보드: stdlib http.server 사용
+# 지식 베이스: stdlib math/collections 사용
+# 플러그인 SDK: stdlib argparse 사용
+
+# --- Phase 6: 추가 의존성 없음 ---
+# 대화 엔진: stdlib dataclasses/functools 사용
+# 복원력: stdlib concurrent.futures/asyncio 사용
+# 중앙 설정: stdlib dataclasses/json 사용
+# 구조화된 로깅: stdlib logging 사용
+# 헬스체크: stdlib http.server/threading 사용

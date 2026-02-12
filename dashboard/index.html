@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>flux-openclaw 대시보드</title>
+    <link rel="stylesheet" href="/dashboard/style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- 사이드바 -->
+        <aside id="sidebar">
+            <div class="sidebar-header">
+                <h1 class="logo">flux-openclaw</h1>
+                <span class="logo-sub">대시보드</span>
+            </div>
+            <nav id="nav">
+                <a href="#status" class="nav-item active" data-section="status">
+                    <span class="nav-icon">&#9679;</span> 상태
+                </a>
+                <a href="#tools" class="nav-item" data-section="tools">
+                    <span class="nav-icon">&#9881;</span> 도구
+                </a>
+                <a href="#memory" class="nav-item" data-section="memory">
+                    <span class="nav-icon">&#9733;</span> 메모리
+                </a>
+                <a href="#schedules" class="nav-item" data-section="schedules">
+                    <span class="nav-icon">&#9200;</span> 스케줄
+                </a>
+                <a href="#knowledge" class="nav-item" data-section="knowledge">
+                    <span class="nav-icon">&#9998;</span> 지식
+                </a>
+                <a href="#usage" class="nav-item" data-section="usage">
+                    <span class="nav-icon">&#9636;</span> 사용량
+                </a>
+            </nav>
+        </aside>
+
+        <!-- 메인 콘텐츠 -->
+        <main id="main">
+            <!-- 헤더 -->
+            <header id="header">
+                <button id="sidebar-toggle" class="btn-outline" aria-label="메뉴 토글">&#9776;</button>
+                <h2 id="page-title">상태</h2>
+                <div class="token-area">
+                    <label for="token-input">토큰:</label>
+                    <input type="password" id="token-input" placeholder="Bearer 토큰 입력" autocomplete="off">
+                    <button id="token-save" class="btn-primary btn-sm">저장</button>
+                </div>
+            </header>
+
+            <!-- 콘텐츠 영역 -->
+            <div id="content">
+                <div class="loading-spinner" id="loading"></div>
+                <div id="page-content"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 토스트 컨테이너 -->
+    <div id="toast-container"></div>
+
+    <script src="/dashboard/app.js"></script>
+</body>
+</html>
