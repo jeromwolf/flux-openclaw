@@ -10,7 +10,7 @@ import hashlib
 import pytest
 from unittest.mock import patch
 
-from tool_marketplace import MarketplaceEngine
+from openclaw.tool_marketplace import MarketplaceEngine
 
 
 # ================================================================
@@ -569,7 +569,7 @@ class TestMarketplaceTool:
     def test_tool_search(self, tmp_path):
         """search action: 검색 결과 문자열 반환"""
         eng = self._patch_engine(tmp_path)
-        with patch("tool_marketplace.MarketplaceEngine", return_value=eng):
+        with patch("openclaw.tool_marketplace.MarketplaceEngine", return_value=eng):
             from tools.marketplace_tool import main
             result = main(action="search", query="iface")
         assert "iface_tool" in result
@@ -577,7 +577,7 @@ class TestMarketplaceTool:
     def test_tool_install(self, tmp_path):
         """install action: 설치 성공 메시지"""
         eng = self._patch_engine(tmp_path)
-        with patch("tool_marketplace.MarketplaceEngine", return_value=eng):
+        with patch("openclaw.tool_marketplace.MarketplaceEngine", return_value=eng):
             from tools.marketplace_tool import main
             result = main(action="install", tool_name="iface_tool")
         assert "설치" in result
@@ -585,7 +585,7 @@ class TestMarketplaceTool:
     def test_tool_uninstall(self, tmp_path):
         """uninstall action: 미설치 도구 제거 시 에러 메시지"""
         eng = self._patch_engine(tmp_path)
-        with patch("tool_marketplace.MarketplaceEngine", return_value=eng):
+        with patch("openclaw.tool_marketplace.MarketplaceEngine", return_value=eng):
             from tools.marketplace_tool import main
             result = main(action="uninstall", tool_name="iface_tool")
         assert "설치되어 있지 않습니다" in result
@@ -593,7 +593,7 @@ class TestMarketplaceTool:
     def test_tool_list(self, tmp_path):
         """list action: 설치 목록 (비어있을 때)"""
         eng = self._patch_engine(tmp_path)
-        with patch("tool_marketplace.MarketplaceEngine", return_value=eng):
+        with patch("openclaw.tool_marketplace.MarketplaceEngine", return_value=eng):
             from tools.marketplace_tool import main
             result = main(action="list")
         assert "없습니다" in result
@@ -601,7 +601,7 @@ class TestMarketplaceTool:
     def test_tool_info(self, tmp_path):
         """info action: 도구 정보 반환"""
         eng = self._patch_engine(tmp_path)
-        with patch("tool_marketplace.MarketplaceEngine", return_value=eng):
+        with patch("openclaw.tool_marketplace.MarketplaceEngine", return_value=eng):
             from tools.marketplace_tool import main
             result = main(action="info", tool_name="iface_tool")
         assert "iface_tool" in result
@@ -609,7 +609,7 @@ class TestMarketplaceTool:
     def test_tool_unknown_action(self, tmp_path):
         """알 수 없는 action 시 에러 메시지"""
         eng = self._patch_engine(tmp_path)
-        with patch("tool_marketplace.MarketplaceEngine", return_value=eng):
+        with patch("openclaw.tool_marketplace.MarketplaceEngine", return_value=eng):
             from tools.marketplace_tool import main
             result = main(action="explode")
         assert "알 수 없는 action" in result

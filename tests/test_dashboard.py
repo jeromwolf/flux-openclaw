@@ -19,8 +19,8 @@ from email.message import Message
 # 프로젝트 루트를 path에 추가
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import dashboard as dashboard_module
-from dashboard import DashboardHandler, _MAX_BODY_SIZE
+import openclaw.dashboard_server as dashboard_module
+from openclaw.dashboard_server import DashboardHandler, _MAX_BODY_SIZE
 
 
 # ============================================================
@@ -282,11 +282,11 @@ class TestAPIEndpoints:
 
     def test_api_status(self, authed_handler):
         """GET /api/status가 예상 키를 포함하는 dict 반환"""
-        with patch("dashboard._get_tool_manager", return_value=None), \
-             patch("dashboard._get_memory_store", return_value=None), \
-             patch("dashboard._get_scheduler", return_value=None), \
-             patch("dashboard._get_knowledge_base", return_value=None), \
-             patch("dashboard._get_marketplace", return_value=None):
+        with patch("openclaw.dashboard_server._get_tool_manager", return_value=None), \
+             patch("openclaw.dashboard_server._get_memory_store", return_value=None), \
+             patch("openclaw.dashboard_server._get_scheduler", return_value=None), \
+             patch("openclaw.dashboard_server._get_knowledge_base", return_value=None), \
+             patch("openclaw.dashboard_server._get_marketplace", return_value=None):
 
             authed_handler._handle_status()
 
@@ -312,7 +312,7 @@ class TestAPIEndpoints:
         usage_file = tmp_path / "usage_data.json"
         usage_file.write_text(json.dumps(usage_data), encoding="utf-8")
 
-        with patch("dashboard.os.path.exists", return_value=True), \
+        with patch("openclaw.dashboard_server.os.path.exists", return_value=True), \
              patch("builtins.open", create=True) as mock_open:
             mock_open.return_value.__enter__ = lambda s: BytesIO(
                 json.dumps(usage_data).encode("utf-8")
@@ -333,7 +333,7 @@ class TestAPIEndpoints:
             {"name": "another_tool", "description": "다른 도구", "input_schema": {}},
         ]
 
-        with patch("dashboard._get_tool_manager", return_value=mock_mgr):
+        with patch("openclaw.dashboard_server._get_tool_manager", return_value=mock_mgr):
             authed_handler._handle_tools_list()
 
         written = authed_handler.wfile.getvalue()
@@ -350,7 +350,7 @@ class TestAPIEndpoints:
             {"id": "m2", "category": "facts", "key": "k2", "value": "v2"},
         ]
 
-        with patch("dashboard._get_memory_store", return_value=mock_store):
+        with patch("openclaw.dashboard_server._get_memory_store", return_value=mock_store):
             authed_handler._handle_memory_list()
 
         written = authed_handler.wfile.getvalue()
@@ -364,7 +364,7 @@ class TestAPIEndpoints:
         mock_kb.get_stats.return_value = {"total_documents": 10}
         mock_kb.list_documents.return_value = [{"title": "doc1"}, {"title": "doc2"}]
 
-        with patch("dashboard._get_knowledge_base", return_value=mock_kb):
+        with patch("openclaw.dashboard_server._get_knowledge_base", return_value=mock_kb):
             authed_handler._handle_knowledge_stats()
 
         written = authed_handler.wfile.getvalue()
@@ -386,7 +386,7 @@ class TestAPIEndpoints:
         authed_handler.rfile = BytesIO(body)
         authed_handler.headers["Content-Length"] = str(len(body))
 
-        with patch("dashboard._get_knowledge_base", return_value=mock_kb):
+        with patch("openclaw.dashboard_server._get_knowledge_base", return_value=mock_kb):
             authed_handler._handle_knowledge_search()
 
         written = authed_handler.wfile.getvalue()

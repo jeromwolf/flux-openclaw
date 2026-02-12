@@ -16,8 +16,8 @@ SCHEMA = {
 }
 
 
-PROTECTED_FILES = {".env", "main.py", "core.py", "instruction.md", ".gitignore", "requirements.txt", "security.md", "style.md", "ws_server.py", "telegram_bot.py", ".tool_approved.json", "daemon.py", "scheduler.py", "memory_store.py", "llm_provider.py", "discord_bot.py", "slack_bot.py", "tool_marketplace.py", "onboarding.py", "dashboard.py", "knowledge_base.py", "plugin_sdk.py", "conversation_engine.py"}
-PROTECTED_DIRS = {"tools", "marketplace", "dashboard", "knowledge"}
+PROTECTED_FILES = {".env", "main.py", "core.py", "instruction.md", ".gitignore", "requirements.txt", "security.md", "style.md", "ws_server.py", "telegram_bot.py", ".tool_approved.json", "daemon.py", "scheduler.py", "memory_store.py", "llm_provider.py", "discord_bot.py", "slack_bot.py", "tool_marketplace.py", "onboarding.py", "dashboard_server.py", "knowledge_base.py", "plugin_sdk.py", "conversation_engine.py"}
+PROTECTED_DIRS = {"tools", "marketplace", "dashboard", "knowledge", "openclaw", "bots", "trading"}
 MAX_CONTENT_SIZE = 1024 * 1024  # 1MB
 
 

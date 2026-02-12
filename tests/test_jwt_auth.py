@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from jwt_auth import JWTManager, _b64url_encode, _b64url_decode
+from openclaw.jwt_auth import JWTManager, _b64url_encode, _b64url_decode
 
 
 # ---------------------------------------------------------------------------
@@ -205,7 +205,7 @@ class TestVerify:
         """Expired token returns None."""
         # Create token with TTL=1 second, then advance time
         token = mgr.create_access_token("u1", "bob", "user", ttl=1)
-        with patch("jwt_auth.time") as mock_time:
+        with patch("openclaw.jwt_auth.time") as mock_time:
             # Verify reads time.time() for expiration check
             mock_time.time.return_value = time.time() + 10
             assert mgr.verify(token) is None

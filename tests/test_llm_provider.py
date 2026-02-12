@@ -3,7 +3,7 @@ import os
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from llm_provider import (
+from openclaw.llm_provider import (
     TextBlock, ToolUseBlock, Usage, LLMResponse,
     AnthropicProvider, OpenAIProvider, GoogleProvider,
     get_provider, list_providers, PROVIDERS,

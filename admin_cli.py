@@ -180,7 +180,7 @@ def cmd_status(args):
 
     # 메모리 통계
     try:
-        from memory_store import MemoryStore
+        from openclaw.memory_store import MemoryStore
         store = MemoryStore()
         memories = store._load()
         print(f"[메모리] {len(memories)}개 항목 저장됨")
@@ -217,7 +217,7 @@ def cmd_usage(args):
     # 비용 계산 (cost_tracker 연동)
     cost_usd = 0.0
     try:
-        from cost_tracker import calculate_cost
+        from openclaw.cost_tracker import calculate_cost
         from config import get_config
         cfg = get_config()
         cost_result = calculate_cost(
@@ -359,7 +359,7 @@ def cmd_conversations(args):
 def cmd_conversations_list(args):
     """대화 목록 표시"""
     try:
-        from conversation_store import ConversationStore
+        from openclaw.conversation_store import ConversationStore
     except ImportError:
         print("Error: conversation_store 모듈을 찾을 수 없습니다.", file=sys.stderr)
         print("대화 저장소가 아직 구현되지 않았을 수 있습니다.", file=sys.stderr)
@@ -384,7 +384,7 @@ def cmd_conversations_list(args):
 def cmd_conversations_show(args):
     """대화 상세 + 메시지 표시"""
     try:
-        from conversation_store import ConversationStore
+        from openclaw.conversation_store import ConversationStore
     except ImportError:
         print("Error: conversation_store 모듈을 찾을 수 없습니다.", file=sys.stderr)
         sys.exit(1)
@@ -421,7 +421,7 @@ def cmd_conversations_show(args):
 def cmd_conversations_delete(args):
     """대화 삭제"""
     try:
-        from conversation_store import ConversationStore
+        from openclaw.conversation_store import ConversationStore
     except ImportError:
         print("Error: conversation_store 모듈을 찾을 수 없습니다.", file=sys.stderr)
         sys.exit(1)
@@ -445,7 +445,7 @@ def cmd_conversations_delete(args):
 def cmd_conversations_stats(args):
     """대화 통계 표시"""
     try:
-        from conversation_store import ConversationStore
+        from openclaw.conversation_store import ConversationStore
     except ImportError:
         print("Error: conversation_store 모듈을 찾을 수 없습니다.", file=sys.stderr)
         sys.exit(1)
@@ -469,7 +469,7 @@ def cmd_conversations_stats(args):
 def cmd_conversations_migrate(args):
     """history/ → SQLite 마이그레이션"""
     try:
-        from conversation_store import ConversationStore
+        from openclaw.conversation_store import ConversationStore
     except ImportError:
         print("Error: conversation_store 모듈을 찾을 수 없습니다.", file=sys.stderr)
         sys.exit(1)
@@ -488,7 +488,7 @@ def cmd_conversations_migrate(args):
 def cmd_conversations_search(args):
     """대화 검색"""
     try:
-        from search import ConversationSearch
+        from openclaw.search import ConversationSearch
         from config import get_config
     except ImportError:
         print("Error: search 모듈을 찾을 수 없습니다.", file=sys.stderr)
@@ -538,7 +538,7 @@ def cmd_memory(args):
 def cmd_memory_list(args):
     """메모리 항목 목록"""
     try:
-        from memory_store import MemoryStore
+        from openclaw.memory_store import MemoryStore
     except ImportError:
         print("Error: memory_store 모듈을 찾을 수 없습니다.", file=sys.stderr)
         sys.exit(1)
@@ -565,7 +565,7 @@ def cmd_memory_list(args):
 def cmd_memory_search(args):
     """메모리 검색"""
     try:
-        from memory_store import MemoryStore
+        from openclaw.memory_store import MemoryStore
     except ImportError:
         print("Error: memory_store 모듈을 찾을 수 없습니다.", file=sys.stderr)
         sys.exit(1)
@@ -587,7 +587,7 @@ def cmd_memory_search(args):
 def cmd_memory_delete(args):
     """메모리 항목 삭제"""
     try:
-        from memory_store import MemoryStore
+        from openclaw.memory_store import MemoryStore
     except ImportError:
         print("Error: memory_store 모듈을 찾을 수 없습니다.", file=sys.stderr)
         sys.exit(1)
@@ -611,7 +611,7 @@ def cmd_memory_delete(args):
 def cmd_memory_stats(args):
     """메모리 통계"""
     try:
-        from memory_store import MemoryStore
+        from openclaw.memory_store import MemoryStore
     except ImportError:
         print("Error: memory_store 모듈을 찾을 수 없습니다.", file=sys.stderr)
         sys.exit(1)
@@ -649,7 +649,7 @@ def cmd_memory_stats(args):
 def cmd_memory_cleanup(args):
     """만료 항목 정리"""
     try:
-        from memory_store import MemoryStore
+        from openclaw.memory_store import MemoryStore
     except ImportError:
         print("Error: memory_store 모듈을 찾을 수 없습니다.", file=sys.stderr)
         sys.exit(1)
@@ -681,7 +681,7 @@ def cmd_users(args):
 def cmd_users_list(args):
     """사용자 목록 표시"""
     try:
-        from auth import UserStore
+        from openclaw.auth import UserStore
         from config import get_config
     except ImportError:
         print("Error: auth 모듈을 찾을 수 없습니다.", file=sys.stderr)
@@ -699,7 +699,7 @@ def cmd_users_list(args):
 def cmd_users_create(args):
     """사용자 생성"""
     try:
-        from auth import UserStore
+        from openclaw.auth import UserStore
         from config import get_config
     except ImportError:
         print("Error: auth 모듈을 찾을 수 없습니다.", file=sys.stderr)
@@ -720,7 +720,7 @@ def cmd_users_create(args):
 def cmd_users_deactivate(args):
     """사용자 비활성화"""
     try:
-        from auth import UserStore
+        from openclaw.auth import UserStore
         from config import get_config
     except ImportError:
         print("Error: auth 모듈을 찾을 수 없습니다.", file=sys.stderr)
@@ -739,7 +739,7 @@ def cmd_users_deactivate(args):
 def cmd_users_rotate_key(args):
     """API 키 갱신"""
     try:
-        from auth import UserStore
+        from openclaw.auth import UserStore
         from config import get_config
     except ImportError:
         print("Error: auth 모듈을 찾을 수 없습니다.", file=sys.stderr)
@@ -779,7 +779,7 @@ def cmd_backup(args):
 def cmd_backup_create(args):
     """백업 생성"""
     try:
-        from backup import BackupManager
+        from openclaw.backup import BackupManager
         from config import get_config
     except ImportError:
         print("Error: backup 모듈을 찾을 수 없습니다.", file=sys.stderr)
@@ -798,7 +798,7 @@ def cmd_backup_create(args):
 def cmd_backup_list(args):
     """백업 목록 표시"""
     try:
-        from backup import BackupManager
+        from openclaw.backup import BackupManager
         from config import get_config
     except ImportError:
         print("Error: backup 모듈을 찾을 수 없습니다.", file=sys.stderr)
@@ -817,7 +817,7 @@ def cmd_backup_list(args):
 def cmd_backup_restore(args):
     """백업 복원"""
     try:
-        from backup import BackupManager
+        from openclaw.backup import BackupManager
         from config import get_config
     except ImportError:
         print("Error: backup 모듈을 찾을 수 없습니다.", file=sys.stderr)
@@ -849,7 +849,7 @@ def cmd_audit(args):
 def cmd_audit_list(args):
     """감사 로그 조회"""
     try:
-        from audit import AuditLogger
+        from openclaw.audit import AuditLogger
         from config import get_config
     except ImportError:
         print("Error: audit 모듈을 찾을 수 없습니다.", file=sys.stderr)

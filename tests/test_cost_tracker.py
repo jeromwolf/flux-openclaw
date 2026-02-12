@@ -8,7 +8,7 @@ import pytest
 # cost_tracker 모듈 import를 위한 경로 추가
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from cost_tracker import (
+from openclaw.cost_tracker import (
     CostResult,
     MODEL_PRICING,
     calculate_cost,

@@ -15,7 +15,7 @@ flux-openclaw Multi-LLM 프로바이더 추상화 레이어
 - ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY
 
 사용법:
-    from llm_provider import get_provider
+    from openclaw.llm_provider import get_provider
 
     provider = get_provider()  # 환경변수 기반 자동 선택
     response = provider.create_message(

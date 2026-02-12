@@ -4,7 +4,7 @@ flux-openclaw 헬스체크 서버
 데몬 프로세스의 liveness probe를 위한 경량 HTTP 서버입니다.
 
 사용법:
-    from health import HealthServer
+    from openclaw.health import HealthServer
     server = HealthServer(port=8766)
     server.start_background()  # 데몬 스레드로 실행
 """

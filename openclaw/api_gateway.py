@@ -24,7 +24,7 @@ except ImportError:
 
 # Optional streaming event support
 try:
-    from llm_provider import StreamEvent
+    from openclaw.llm_provider import StreamEvent
     _has_stream_event = True
 except ImportError:
     StreamEvent = None

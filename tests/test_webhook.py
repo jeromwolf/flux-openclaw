@@ -20,7 +20,7 @@ from unittest.mock import MagicMock, patch, call
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from webhook import WebhookStore, WebhookDispatcher
+from openclaw.webhook import WebhookStore, WebhookDispatcher
 
 
 # ============================================================
@@ -327,8 +327,8 @@ class TestDispatcherDeliver:
         mock_resp.__exit__ = MagicMock(return_value=False)
         return mock_resp
 
-    @patch("webhook.time.sleep")
-    @patch("webhook.urllib.request.urlopen")
+    @patch("openclaw.webhook.time.sleep")
+    @patch("openclaw.webhook.urllib.request.urlopen")
     def test_records_delivery_on_success(self, mock_urlopen, mock_sleep, tmp_path):
         store, dispatcher = self._make_dispatcher(tmp_path)
         wh = self._make_webhook(store)
@@ -343,8 +343,8 @@ class TestDispatcherDeliver:
         assert dict(rows[0])["response_status"] == 200
         store.close()
 
-    @patch("webhook.time.sleep")
-    @patch("webhook.urllib.request.urlopen")
+    @patch("openclaw.webhook.time.sleep")
+    @patch("openclaw.webhook.urllib.request.urlopen")
     def test_resets_failure_on_success(self, mock_urlopen, mock_sleep, tmp_path):
         store, dispatcher = self._make_dispatcher(tmp_path)
         wh = self._make_webhook(store)
@@ -357,8 +357,8 @@ class TestDispatcherDeliver:
         assert fetched["failure_count"] == 0
         store.close()
 
-    @patch("webhook.time.sleep")
-    @patch("webhook.urllib.request.urlopen")
+    @patch("openclaw.webhook.time.sleep")
+    @patch("openclaw.webhook.urllib.request.urlopen")
     def test_retries_on_failure(self, mock_urlopen, mock_sleep, tmp_path):
         store, dispatcher = self._make_dispatcher(tmp_path)
         wh = self._make_webhook(store)
@@ -378,8 +378,8 @@ class TestDispatcherDeliver:
         assert mock_sleep.call_count == 2
         store.close()
 
-    @patch("webhook.time.sleep")
-    @patch("webhook.urllib.request.urlopen")
+    @patch("openclaw.webhook.time.sleep")
+    @patch("openclaw.webhook.urllib.request.urlopen")
     def test_increments_failure_after_all_retries_exhausted(self, mock_urlopen, mock_sleep, tmp_path):
         store, dispatcher = self._make_dispatcher(tmp_path)
         wh = self._make_webhook(store)
@@ -393,8 +393,8 @@ class TestDispatcherDeliver:
         assert fetched["failure_count"] == 1
         store.close()
 
-    @patch("webhook.time.sleep")
-    @patch("webhook.urllib.request.urlopen")
+    @patch("openclaw.webhook.time.sleep")
+    @patch("openclaw.webhook.urllib.request.urlopen")
     def test_handles_http_error(self, mock_urlopen, mock_sleep, tmp_path):
         store, dispatcher = self._make_dispatcher(tmp_path)
         wh = self._make_webhook(store)
@@ -419,8 +419,8 @@ class TestDispatcherDeliver:
             assert dict(row)["response_status"] == 500
         store.close()
 
-    @patch("webhook.time.sleep")
-    @patch("webhook.urllib.request.urlopen")
+    @patch("openclaw.webhook.time.sleep")
+    @patch("openclaw.webhook.urllib.request.urlopen")
     def test_exponential_backoff_timing(self, mock_urlopen, mock_sleep, tmp_path):
         store, dispatcher = self._make_dispatcher(tmp_path)
         wh = self._make_webhook(store)
@@ -434,8 +434,8 @@ class TestDispatcherDeliver:
         mock_sleep.assert_any_call(2)  # BASE_BACKOFF * 2^1
         store.close()
 
-    @patch("webhook.time.sleep")
-    @patch("webhook.urllib.request.urlopen")
+    @patch("openclaw.webhook.time.sleep")
+    @patch("openclaw.webhook.urllib.request.urlopen")
     def test_sends_correct_headers(self, mock_urlopen, mock_sleep, tmp_path):
         store, dispatcher = self._make_dispatcher(tmp_path)
         wh = self._make_webhook(store)
@@ -450,8 +450,8 @@ class TestDispatcherDeliver:
         assert req.get_header("User-agent") == "flux-openclaw-webhook/1.0"
         store.close()
 
-    @patch("webhook.time.sleep")
-    @patch("webhook.urllib.request.urlopen")
+    @patch("openclaw.webhook.time.sleep")
+    @patch("openclaw.webhook.urllib.request.urlopen")
     def test_records_all_delivery_attempts(self, mock_urlopen, mock_sleep, tmp_path):
         store, dispatcher = self._make_dispatcher(tmp_path)
         wh = self._make_webhook(store)

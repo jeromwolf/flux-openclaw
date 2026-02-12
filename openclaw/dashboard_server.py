@@ -37,7 +37,7 @@ def _get_webhook_store():
     global _webhook_store
     if _webhook_store is None:
         try:
-            from webhook import WebhookStore
+            from openclaw.webhook import WebhookStore
             _webhook_store = WebhookStore()
         except ImportError:
             pass
@@ -50,7 +50,7 @@ def _get_webhook_dispatcher():
         store = _get_webhook_store()
         if store:
             try:
-                from webhook import WebhookDispatcher
+                from openclaw.webhook import WebhookDispatcher
                 _webhook_dispatcher = WebhookDispatcher(store)
             except ImportError:
                 pass
@@ -61,7 +61,7 @@ def _get_cors_config():
     global _cors_config
     if _cors_config is None:
         try:
-            from cors import create_cors_config
+            from openclaw.cors import create_cors_config
             from config import get_config
             cfg = get_config()
             _cors_config = create_cors_config(
@@ -77,7 +77,7 @@ def _get_cors_config():
 def _get_memory_store():
     """MemoryStore 인스턴스 반환 (임포트 실패 시 None)"""
     try:
-        from memory_store import MemoryStore
+        from openclaw.memory_store import MemoryStore
         return MemoryStore()
     except ImportError:
         return None
@@ -85,7 +85,7 @@ def _get_memory_store():
 def _get_scheduler():
     """Scheduler 인스턴스 반환 (임포트 실패 시 None)"""
     try:
-        from scheduler import Scheduler
+        from openclaw.scheduler import Scheduler
         return Scheduler()
     except ImportError:
         return None
@@ -93,7 +93,7 @@ def _get_scheduler():
 def _get_knowledge_base():
     """KnowledgeBase 인스턴스 반환 (임포트 실패 시 None)"""
     try:
-        from knowledge_base import KnowledgeBase
+        from openclaw.knowledge_base import KnowledgeBase
         return KnowledgeBase()
     except ImportError:
         return None
@@ -101,7 +101,7 @@ def _get_knowledge_base():
 def _get_marketplace():
     """MarketplaceEngine 인스턴스 반환 (임포트 실패 시 None)"""
     try:
-        from tool_marketplace import MarketplaceEngine
+        from openclaw.tool_marketplace import MarketplaceEngine
         return MarketplaceEngine()
     except ImportError:
         return None
@@ -117,7 +117,7 @@ def _get_tool_manager():
 def _get_conversation_store():
     """ConversationStore 인스턴스 반환 (임포트 실패 시 None)"""
     try:
-        from conversation_store import ConversationStore
+        from openclaw.conversation_store import ConversationStore
         from config import get_config
         cfg = get_config()
         return ConversationStore(cfg.conversation_db_path)
@@ -127,7 +127,7 @@ def _get_conversation_store():
 def _get_user_store():
     """UserStore 인스턴스 반환 (임포트 실패 시 None)"""
     try:
-        from auth import UserStore
+        from openclaw.auth import UserStore
         from config import get_config
         return UserStore(get_config().auth_db_path)
     except ImportError:
@@ -141,7 +141,7 @@ def _get_rate_limiter():
     global _rate_limiter
     if _rate_limiter is None:
         try:
-            from rate_limiter import HTTPRateLimiter
+            from openclaw.rate_limiter import HTTPRateLimiter
             from config import get_config
             cfg = get_config()
             _rate_limiter = HTTPRateLimiter(
@@ -161,14 +161,14 @@ def _get_chat_api():
     if _chat_api is not None:
         return _chat_api
     try:
-        from conversation_engine import ConversationEngine
+        from openclaw.conversation_engine import ConversationEngine
         from core import ToolManager, load_system_prompt
-        from api_gateway import ChatAPI
+        from openclaw.api_gateway import ChatAPI
 
         provider = None
         client = None
         try:
-            from llm_provider import get_provider
+            from openclaw.llm_provider import get_provider
             provider = get_provider()
         except (ImportError, Exception):
             pass
@@ -198,7 +198,7 @@ def _get_chat_api():
 def _get_audit_logger():
     """AuditLogger 인스턴스 반환 (임포트 실패 시 None)"""
     try:
-        from audit import AuditLogger
+        from openclaw.audit import AuditLogger
         from config import get_config
         return AuditLogger(get_config().audit_db_path)
     except ImportError:
@@ -207,7 +207,7 @@ def _get_audit_logger():
 def _get_backup_manager():
     """BackupManager 인스턴스 반환 (임포트 실패 시 None)"""
     try:
-        from backup import BackupManager
+        from openclaw.backup import BackupManager
         from config import get_config
         return BackupManager(get_config().backup_dir)
     except ImportError:
@@ -267,7 +267,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         # auth_enabled=False → 모든 요청 허용
         if not cfg.auth_enabled:
             try:
-                from auth import DEFAULT_USER
+                from openclaw.auth import DEFAULT_USER
                 return DEFAULT_USER
             except ImportError:
                 return None
@@ -280,11 +280,11 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             # 1. JWT 토큰 시도
             if cfg.jwt_secret:
                 try:
-                    from jwt_auth import JWTManager
+                    from openclaw.jwt_auth import JWTManager
                     jwt_mgr = JWTManager(cfg.jwt_secret)
                     payload = jwt_mgr.verify(token)
                     if payload:
-                        from auth import UserContext
+                        from openclaw.auth import UserContext
                         return UserContext(
                             user_id=payload["sub"],
                             username=payload.get("username", ""),
@@ -300,7 +300,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                     try:
                         user = store.authenticate_api_key(token)
                         if user:
-                            from auth import UserContext
+                            from openclaw.auth import UserContext
                             return UserContext(
                                 user_id=user.id,
                                 username=user.username,
@@ -314,7 +314,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             dashboard_token = os.environ.get("DASHBOARD_TOKEN", "")
             if dashboard_token and hmac.compare_digest(token, dashboard_token):
                 try:
-                    from auth import DEFAULT_USER
+                    from openclaw.auth import DEFAULT_USER
                     return DEFAULT_USER
                 except ImportError:
                     return None
@@ -336,7 +336,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         cors_cfg = _get_cors_config()
         if cors_cfg is not None:
             try:
-                from cors import get_cors_headers
+                from openclaw.cors import get_cors_headers
                 origin = self.headers.get("Origin", "") if hasattr(self, "headers") and self.headers else ""
                 cors_headers = get_cors_headers(origin, cors_cfg)
                 if "Access-Control-Allow-Origin" in cors_headers:
@@ -376,7 +376,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         cors_cfg = _get_cors_config()
         if cors_cfg is not None:
             try:
-                from cors import get_cors_headers
+                from openclaw.cors import get_cors_headers
                 origin = self.headers.get("Origin", "")
                 headers = get_cors_headers(origin, cors_cfg)
                 self.send_response(204)
@@ -903,7 +903,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         if not query:
             return self._send_json({"error": "query가 필요합니다"}, 400)
         try:
-            from search import ConversationSearch
+            from openclaw.search import ConversationSearch
             from config import get_config
             searcher = ConversationSearch(get_config().conversation_db_path)
             results = searcher.search(query, limit=body.get("limit", 20))
@@ -917,7 +917,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
     def _handle_conversation_tags_get(self, conv_id):
         """GET /api/conversations/<id>/tags -- 태그 조회"""
         try:
-            from search import TagManager
+            from openclaw.search import TagManager
             from config import get_config
             tag_mgr = TagManager(get_config().conversation_db_path)
             tags = tag_mgr.get_tags(conv_id)
@@ -936,7 +936,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         if not tag:
             return self._send_json({"error": "tag가 필요합니다"}, 400)
         try:
-            from search import TagManager
+            from openclaw.search import TagManager
             from config import get_config
             tag_mgr = TagManager(get_config().conversation_db_path)
             tag_mgr.add_tag(conv_id, tag)
@@ -949,7 +949,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
     def _handle_tags_list(self):
         """GET /api/tags -- 전체 태그 목록"""
         try:
-            from search import TagManager
+            from openclaw.search import TagManager
             from config import get_config
             tag_mgr = TagManager(get_config().conversation_db_path)
             tags = tag_mgr.list_all_tags()
@@ -1008,7 +1008,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
     def _handle_metrics(self):
         """GET /metrics -- Prometheus text format"""
         try:
-            from metrics import get_metrics
+            from openclaw.metrics import get_metrics
             collector = get_metrics()
         except ImportError:
             return self._send_json({"error": "Metrics not available"}, 503)
@@ -1114,7 +1114,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         if not user:
             return self._send_json({"error": "Invalid API key"}, 401)
 
-        from jwt_auth import JWTManager
+        from openclaw.jwt_auth import JWTManager
         jwt_mgr = JWTManager(cfg.jwt_secret)
         access_token = jwt_mgr.create_access_token(
             user_id=user.id,
@@ -1166,7 +1166,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         if not token_data:
             return self._send_json({"error": "Invalid or expired refresh token"}, 401)
 
-        from jwt_auth import JWTManager
+        from openclaw.jwt_auth import JWTManager
         jwt_mgr = JWTManager(cfg.jwt_secret)
         access_token = jwt_mgr.create_access_token(
             user_id=token_data["user_id"],
@@ -1250,12 +1250,12 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
 
     def _handle_retention_stats(self, ctx):
         """GET /api/retention/stats -- retention statistics (admin only)"""
-        from auth import _ROLE_RANK
+        from openclaw.auth import _ROLE_RANK
         if _ROLE_RANK.get(ctx.role, 0) < _ROLE_RANK.get("admin", 2):
             return self._send_json({"error": "Admin access required"}, 403)
 
         try:
-            from retention import RetentionManager
+            from openclaw.retention import RetentionManager
             mgr = RetentionManager()
         except ImportError:
             return self._send_json({"error": "Retention manager not available"}, 503)
@@ -1265,12 +1265,12 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
 
     def _handle_retention_run(self, ctx):
         """POST /api/retention/run -- execute cleanup (admin only)"""
-        from auth import _ROLE_RANK
+        from openclaw.auth import _ROLE_RANK
         if _ROLE_RANK.get(ctx.role, 0) < _ROLE_RANK.get("admin", 2):
             return self._send_json({"error": "Admin access required"}, 403)
 
         try:
-            from retention import RetentionManager
+            from openclaw.retention import RetentionManager
             mgr = RetentionManager()
         except ImportError:
             return self._send_json({"error": "Retention manager not available"}, 503)

@@ -8,7 +8,7 @@ from unittest.mock import patch, MagicMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from resilience import (
+from openclaw.resilience import (
     _is_retryable,
     retry_llm_call,
     retry_llm_call_async,
@@ -75,7 +75,7 @@ class TestIsRetryable:
 class TestRetryLlmCall:
     """retry_llm_call 함수 테스트"""
 
-    @patch("resilience.time.sleep")
+    @patch("openclaw.resilience.time.sleep")
     def test_success_first_try(self, mock_sleep):
         """첫 시도에 성공"""
         fn = MagicMock(return_value="ok")
@@ -84,7 +84,7 @@ class TestRetryLlmCall:
         fn.assert_called_once()
         mock_sleep.assert_not_called()
 
-    @patch("resilience.time.sleep")
+    @patch("openclaw.resilience.time.sleep")
     def test_success_after_retry(self, mock_sleep):
         """재시도 후 성공"""
         exc = Exception("rate limit")
@@ -96,7 +96,7 @@ class TestRetryLlmCall:
         assert fn.call_count == 2
         assert mock_sleep.call_count == 1
 
-    @patch("resilience.time.sleep")
+    @patch("openclaw.resilience.time.sleep")
     def test_max_retries_exceeded(self, mock_sleep):
         """최대 재시도 초과"""
         exc = Exception("server error")
@@ -109,7 +109,7 @@ class TestRetryLlmCall:
         assert fn.call_count == 3  # 초기 + 2회 재시도
         assert mock_sleep.call_count == 2
 
-    @patch("resilience.time.sleep")
+    @patch("openclaw.resilience.time.sleep")
     def test_non_retryable_raises_immediately(self, mock_sleep):
         """재시도 불가능한 에러는 즉시 발생"""
         exc = ValueError("bad request")
@@ -121,7 +121,7 @@ class TestRetryLlmCall:
         fn.assert_called_once()
         mock_sleep.assert_not_called()
 
-    @patch("resilience.time.sleep")
+    @patch("openclaw.resilience.time.sleep")
     def test_custom_params(self, mock_sleep):
         """커스텀 재시도 파라미터"""
         exc = Exception("overloaded")
@@ -133,14 +133,14 @@ class TestRetryLlmCall:
         assert fn.call_count == 3
         assert mock_sleep.call_count == 2
 
-    @patch("resilience.time.sleep")
+    @patch("openclaw.resilience.time.sleep")
     def test_exponential_backoff(self, mock_sleep):
         """지수 백오프 확인"""
         exc = Exception("rate limit")
         exc.status_code = 429
         fn = MagicMock(side_effect=[exc, exc, exc, "ok"])
 
-        with patch("resilience.random.uniform", return_value=0):  # jitter 제거
+        with patch("openclaw.resilience.random.uniform", return_value=0):  # jitter 제거
             retry_llm_call(fn, max_retries=3, base_delay=1.0, max_delay=16.0)
 
         # attempt 0: delay = 1.0*2^0 = 1.0
@@ -236,7 +236,7 @@ class TestWithTimeoutAsync:
 class TestRetryLlmCallAsync:
     """retry_llm_call_async 함수 테스트"""
 
-    @patch("resilience.asyncio.sleep")
+    @patch("openclaw.resilience.asyncio.sleep")
     def test_async_success_first_try(self, mock_async_sleep):
         """비동기: 첫 시도에 성공"""
         mock_async_sleep.return_value = asyncio.coroutine(lambda: None)()
@@ -246,7 +246,7 @@ class TestRetryLlmCallAsync:
         assert result == "async ok"
         fn.assert_called_once()
 
-    @patch("resilience.asyncio.sleep")
+    @patch("openclaw.resilience.asyncio.sleep")
     def test_async_non_retryable_raises(self, mock_async_sleep):
         """비동기: 재시도 불가능한 에러 즉시 발생"""
         mock_async_sleep.return_value = asyncio.coroutine(lambda: None)()

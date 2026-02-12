@@ -2,7 +2,7 @@
 import sqlite3
 from datetime import datetime, timedelta
 
-from retention import RetentionPolicy, RetentionManager, DEFAULT_POLICIES
+from openclaw.retention import RetentionPolicy, RetentionManager, DEFAULT_POLICIES
 
 
 # ---------------------------------------------------------------------------

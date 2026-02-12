@@ -28,11 +28,11 @@ from core import (
     load_usage,
     load_system_prompt,
 )
-from conversation_engine import ConversationEngine
+from openclaw.conversation_engine import ConversationEngine
 
 # llm_provider 선택적 import
 try:
-    from llm_provider import get_provider
+    from openclaw.llm_provider import get_provider
 except ImportError:
     get_provider = None
 

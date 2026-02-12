@@ -10,7 +10,7 @@ import os
 
 # scheduler 모듈은 프로젝트 루트에 위치하며,
 # ToolManager가 프로젝트 루트에서 실행되므로 직접 import 가능
-import scheduler
+import openclaw.scheduler as scheduler
 
 SCHEMA = {
     "name": "schedule_task",

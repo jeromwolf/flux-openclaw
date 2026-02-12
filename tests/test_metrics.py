@@ -1,7 +1,7 @@
 """Tests for metrics.py -- MetricsCollector, get_metrics, reset_metrics."""
 import threading
 
-from metrics import MetricsCollector, get_metrics, reset_metrics
+from openclaw.metrics import MetricsCollector, get_metrics, reset_metrics
 
 
 # ---------------------------------------------------------------------------

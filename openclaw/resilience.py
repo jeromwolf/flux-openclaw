@@ -4,7 +4,7 @@ flux-openclaw 복원력 모듈
 LLM API 호출 재시도 (지수 백오프)와 도구 실행 타임아웃을 제공합니다.
 
 사용법:
-    from resilience import retry_llm_call, with_timeout
+    from openclaw.resilience import retry_llm_call, with_timeout
     from functools import partial
 
     # LLM 재시도

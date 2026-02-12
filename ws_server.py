@@ -24,7 +24,7 @@ import anthropic
 
 # LLM Provider 폴백 지원
 try:
-    from llm_provider import get_provider
+    from openclaw.llm_provider import get_provider
     _use_provider = True
 except ImportError:
     _use_provider = False
@@ -45,9 +45,9 @@ from core import (
     load_usage, check_daily_limit,
     load_system_prompt,
 )
-from conversation_engine import ConversationEngine
+from openclaw.conversation_engine import ConversationEngine
 from config import get_config
-from conversation_store import ConversationStore
+from openclaw.conversation_store import ConversationStore
 
 
 def _get_auth_middleware():
@@ -56,7 +56,7 @@ def _get_auth_middleware():
         from config import get_config as _cfg
         cfg = _cfg()
         if cfg.auth_enabled:
-            from auth import UserStore, AuthMiddleware
+            from openclaw.auth import UserStore, AuthMiddleware
             store = UserStore(cfg.auth_db_path)
             return AuthMiddleware(store)
     except Exception:

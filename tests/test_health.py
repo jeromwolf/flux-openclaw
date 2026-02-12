@@ -4,7 +4,7 @@ import time
 import urllib.request
 import urllib.error
 import socket
-from health import HealthServer, HealthHandler, start_health_server
+from openclaw.health import HealthServer, HealthHandler, start_health_server
 
 
 def _get_free_port():

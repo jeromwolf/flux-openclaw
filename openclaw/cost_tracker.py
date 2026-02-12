@@ -5,7 +5,7 @@ flux-openclaw LLM API 비용 계산 모듈
 새 pip 패키지 없음 (stdlib only).
 
 사용법:
-    from cost_tracker import calculate_cost, list_supported_models
+    from openclaw.cost_tracker import calculate_cost, list_supported_models
 
     result = calculate_cost("claude-sonnet-4-20250514", 10000, 5000)
     print(f"총 비용: ${result.total_cost_usd:.6f}")

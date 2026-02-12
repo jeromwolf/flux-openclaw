@@ -10,13 +10,13 @@ from core import (
     ToolManager, log,
     load_system_prompt, load_usage,
 )
-from conversation_engine import ConversationEngine
+from openclaw.conversation_engine import ConversationEngine
 from config import get_config
-from conversation_store import ConversationStore
+from openclaw.conversation_store import ConversationStore
 
 # LLM Provider 폴백 지원
 try:
-    from llm_provider import get_provider
+    from openclaw.llm_provider import get_provider
     _use_provider = True
 except ImportError:
     _use_provider = False
@@ -34,7 +34,7 @@ def main():
 
     # 온보딩 체크 (첫 실행 시 설정 마법사)
     try:
-        from onboarding import check_and_run_onboarding
+        from openclaw.onboarding import check_and_run_onboarding
         if not check_and_run_onboarding():
             return
     except ImportError:

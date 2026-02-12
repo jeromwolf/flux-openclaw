@@ -344,7 +344,7 @@ def load_system_prompt(extra_suffix="", knowledge_query=None):
     # 구조화된 메모리 시스템 (memories.json) 우선 사용
     memory_content = None
     try:
-        from memory_store import MemoryStore
+        from openclaw.memory_store import MemoryStore
         store = MemoryStore()
         summary = store.get_summary(max_chars=1500)
         if summary:
@@ -381,7 +381,7 @@ def load_system_prompt(extra_suffix="", knowledge_query=None):
     # 지식 베이스 컨텍스트 주입
     if knowledge_query:
         try:
-            from knowledge_base import KnowledgeBase
+            from openclaw.knowledge_base import KnowledgeBase
             kb = KnowledgeBase()
             kb_context = kb.get_context(knowledge_query, max_chars=1000)
             if kb_context:
@@ -552,7 +552,7 @@ def execute_tool(tool_use, tool_mgr, run_async=False):
 
         # 타임아웃 적용 (resilience 모듈)
         try:
-            from resilience import with_timeout, _TimeoutError
+            from openclaw.resilience import with_timeout, _TimeoutError
             from config import get_config
             cfg = get_config()
             result = with_timeout(fn, timeout_seconds=cfg.tool_timeout_seconds, **filtered_input)

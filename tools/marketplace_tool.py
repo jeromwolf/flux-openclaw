@@ -6,7 +6,7 @@ marketplace_tool - AI가 도구 마켓플레이스를 관리하는 도구
 """
 
 import json
-import tool_marketplace
+import openclaw.tool_marketplace as tool_marketplace
 
 SCHEMA = {
     "name": "marketplace",

@@ -6,7 +6,7 @@ import sqlite3
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from auth import UserStore, UserContext, AuthMiddleware, User, DEFAULT_USER
+from openclaw.auth import UserStore, UserContext, AuthMiddleware, User, DEFAULT_USER
 
 
 class TestUserContext:
@@ -461,7 +461,7 @@ class TestHelperFunctions:
 
     def test_generate_api_key_format(self):
         """API 키 생성 형식 확인"""
-        from auth import _generate_api_key
+        from openclaw.auth import _generate_api_key
 
         raw_key, key_hash, key_prefix = _generate_api_key()
 
@@ -473,7 +473,7 @@ class TestHelperFunctions:
 
     def test_hash_api_key_consistency(self):
         """API 키 해싱 일관성 확인"""
-        from auth import _hash_api_key
+        from openclaw.auth import _hash_api_key
 
         test_key = "flux_test_key_1234567890abcdef1234567890abcdef1234567890abcdef1234"
         hash1 = _hash_api_key(test_key)

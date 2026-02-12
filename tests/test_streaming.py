@@ -19,8 +19,8 @@ from dataclasses import dataclass
 # 경로 설정
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from llm_provider import StreamEvent, TextBlock, ToolUseBlock, Usage, LLMResponse, BaseLLMProvider
-from conversation_engine import ConversationEngine, TurnResult
+from openclaw.llm_provider import StreamEvent, TextBlock, ToolUseBlock, Usage, LLMResponse, BaseLLMProvider
+from openclaw.conversation_engine import ConversationEngine, TurnResult
 
 
 # =============================================================================
@@ -192,8 +192,8 @@ def mock_config():
     return config
 
 
-@patch("conversation_engine.get_config")
-@patch("conversation_engine.increment_usage")
+@patch("openclaw.conversation_engine.get_config")
+@patch("openclaw.conversation_engine.increment_usage")
 def test_stream_text_only_response(mock_increment, mock_get_config, mock_tool_mgr, mock_config):
     """ConversationEngine 텍스트 전용 응답 스트리밍 테스트"""
     mock_get_config.return_value = mock_config
@@ -239,8 +239,8 @@ def test_stream_text_only_response(mock_increment, mock_get_config, mock_tool_mg
     assert result.output_tokens == 5
 
 
-@patch("conversation_engine.get_config")
-@patch("conversation_engine.increment_usage")
+@patch("openclaw.conversation_engine.get_config")
+@patch("openclaw.conversation_engine.increment_usage")
 def test_stream_yields_text_deltas(mock_increment, mock_get_config, mock_tool_mgr, mock_config):
     """ConversationEngine이 text_delta를 올바르게 yield하는지 테스트"""
     mock_get_config.return_value = mock_config
@@ -274,8 +274,8 @@ def test_stream_yields_text_deltas(mock_increment, mock_get_config, mock_tool_mg
     assert text_deltas == ["A", "B", "C"]
 
 
-@patch("conversation_engine.get_config")
-@patch("conversation_engine.increment_usage")
+@patch("openclaw.conversation_engine.get_config")
+@patch("openclaw.conversation_engine.increment_usage")
 def test_stream_yields_turn_complete(mock_increment, mock_get_config, mock_tool_mgr, mock_config):
     """ConversationEngine이 마지막에 turn_complete를 yield하는지 테스트"""
     mock_get_config.return_value = mock_config
@@ -309,7 +309,7 @@ def test_stream_yields_turn_complete(mock_increment, mock_get_config, mock_tool_
     assert isinstance(events[-1].data, TurnResult)
 
 
-@patch("conversation_engine.get_config")
+@patch("openclaw.conversation_engine.get_config")
 def test_stream_fallback_when_no_provider(mock_get_config, mock_tool_mgr, mock_config):
     """ConversationEngine에 provider가 없을 때 fallback 동작 테스트"""
     mock_get_config.return_value = mock_config
@@ -329,8 +329,8 @@ def test_stream_fallback_when_no_provider(mock_get_config, mock_tool_mgr, mock_c
         system_prompt="Test"
     )
 
-    with patch("conversation_engine.retry_llm_call", return_value=response):
-        with patch("conversation_engine.increment_usage"):
+    with patch("openclaw.conversation_engine.retry_llm_call", return_value=response):
+        with patch("openclaw.conversation_engine.increment_usage"):
             messages = [{"role": "user", "content": "Test"}]
             events = list(engine.run_turn_stream(messages))
 
@@ -340,9 +340,9 @@ def test_stream_fallback_when_no_provider(mock_get_config, mock_tool_mgr, mock_c
     assert events[0].data.text == "Fallback"
 
 
-@patch("conversation_engine.get_config")
-@patch("conversation_engine.increment_usage")
-@patch("conversation_engine.with_timeout")
+@patch("openclaw.conversation_engine.get_config")
+@patch("openclaw.conversation_engine.increment_usage")
+@patch("openclaw.conversation_engine.with_timeout")
 def test_stream_with_tool_use(mock_timeout, mock_increment, mock_get_config, mock_tool_mgr, mock_config):
     """ConversationEngine 도구 사용 시 스트리밍 테스트 (도구 실행 후 두 번째 스트리밍)"""
     mock_get_config.return_value = mock_config
@@ -407,8 +407,8 @@ def test_stream_with_tool_use(mock_timeout, mock_increment, mock_get_config, moc
     assert turn_complete[0].data.tool_rounds == 1
 
 
-@patch("conversation_engine.get_config")
-@patch("conversation_engine.increment_usage")
+@patch("openclaw.conversation_engine.get_config")
+@patch("openclaw.conversation_engine.increment_usage")
 def test_stream_cost_tracked(mock_increment, mock_get_config, mock_tool_mgr, mock_config):
     """ConversationEngine 스트리밍 시 비용 추적 확인"""
     mock_get_config.return_value = mock_config
@@ -450,8 +450,8 @@ def test_stream_cost_tracked(mock_increment, mock_get_config, mock_tool_mgr, moc
 # =============================================================================
 
 @pytest.mark.asyncio
-@patch("conversation_engine.get_config")
-@patch("conversation_engine.increment_usage")
+@patch("openclaw.conversation_engine.get_config")
+@patch("openclaw.conversation_engine.increment_usage")
 async def test_async_stream_text_response(mock_increment, mock_get_config, mock_tool_mgr, mock_config):
     """ConversationEngine 비동기 스트리밍 텍스트 응답 테스트"""
     mock_get_config.return_value = mock_config
@@ -492,8 +492,8 @@ async def test_async_stream_text_response(mock_increment, mock_get_config, mock_
 
 
 @pytest.mark.asyncio
-@patch("conversation_engine.get_config")
-@patch("conversation_engine.increment_usage")
+@patch("openclaw.conversation_engine.get_config")
+@patch("openclaw.conversation_engine.increment_usage")
 async def test_async_stream_yields_turn_complete(mock_increment, mock_get_config, mock_tool_mgr, mock_config):
     """ConversationEngine 비동기 스트리밍이 turn_complete를 yield하는지 테스트"""
     mock_get_config.return_value = mock_config

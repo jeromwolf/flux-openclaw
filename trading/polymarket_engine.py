@@ -24,7 +24,7 @@ except ImportError:
     logger = logging.getLogger("polymarket_engine")
 
 try:
-    from llm_provider import get_provider
+    from openclaw.llm_provider import get_provider
     HAS_LLM_PROVIDER = True
 except ImportError:
     HAS_LLM_PROVIDER = False

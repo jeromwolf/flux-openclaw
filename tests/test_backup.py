@@ -10,7 +10,7 @@ import time
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from backup import BackupManager, BackupResult, BackupInfo
+from openclaw.backup import BackupManager, BackupResult, BackupInfo
 
 
 class TestBackupManager:

@@ -5,7 +5,7 @@ knowledge_tool - AI가 지식 베이스를 검색/관리하는 도구
 """
 
 import json
-import knowledge_base
+import openclaw.knowledge_base as knowledge_base
 
 SCHEMA = {
     "name": "knowledge",

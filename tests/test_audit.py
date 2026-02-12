@@ -5,7 +5,7 @@ import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from audit import AuditLogger, AuditEvent
+from openclaw.audit import AuditLogger, AuditEvent
 
 
 class TestAuditLogger:

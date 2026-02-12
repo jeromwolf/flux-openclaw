@@ -51,7 +51,7 @@ class TestBuildParser:
 class TestCmdStatus:
     """cmd_status 함수 테스트"""
 
-    @patch("memory_store.MemoryStore")
+    @patch("openclaw.memory_store.MemoryStore")
     @patch("core.ToolManager")
     @patch("config.get_config")
     def test_status_runs_without_error(self, mock_get_config, mock_tool_mgr_cls, mock_mem_store_cls, capsys):
@@ -179,7 +179,7 @@ class TestCmdConfig:
 class TestCmdConversations:
     """cmd_conversations 함수 테스트"""
 
-    @patch("conversation_store.ConversationStore")
+    @patch("openclaw.conversation_store.ConversationStore")
     def test_conversations_stats(self, mock_conv_store_cls, capsys):
         """conversations stats - 대화 통계"""
         mock_store = MagicMock()
@@ -207,7 +207,7 @@ class TestCmdConversations:
 class TestCmdMemory:
     """cmd_memory 함수 테스트"""
 
-    @patch("memory_store.MemoryStore")
+    @patch("openclaw.memory_store.MemoryStore")
     def test_memory_stats(self, mock_mem_store_cls, capsys):
         """memory stats - 메모리 통계"""
         mock_store = MagicMock()

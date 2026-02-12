@@ -14,7 +14,7 @@ flux-openclaw 대화 엔진 모듈
 - 신규 의존성 없음 (stdlib only)
 
 사용법:
-    from conversation_engine import ConversationEngine, TurnResult
+    from openclaw.conversation_engine import ConversationEngine, TurnResult
 
     engine = ConversationEngine(
         provider=provider,
@@ -36,7 +36,7 @@ from typing import Callable, Optional, Set
 
 from core import ToolManager, _filter_tool_input, increment_usage
 from config import get_config
-from resilience import (
+from openclaw.resilience import (
     retry_llm_call,
     retry_llm_call_async,
     with_timeout,
@@ -47,14 +47,14 @@ from logging_config import get_logger
 
 # 비용 추적 (선택적)
 try:
-    from cost_tracker import calculate_cost as _calculate_cost
+    from openclaw.cost_tracker import calculate_cost as _calculate_cost
     _has_cost_tracker = True
 except ImportError:
     _has_cost_tracker = False
 
 # 스트리밍 이벤트 (선택적)
 try:
-    from llm_provider import StreamEvent
+    from openclaw.llm_provider import StreamEvent
 except ImportError:
     StreamEvent = None
 

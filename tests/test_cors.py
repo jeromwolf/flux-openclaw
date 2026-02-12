@@ -5,7 +5,7 @@ import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from cors import CORSConfig, is_allowed_origin, get_cors_headers, create_cors_config
+from openclaw.cors import CORSConfig, is_allowed_origin, get_cors_headers, create_cors_config
 
 
 # ---------------------------------------------------------------------------

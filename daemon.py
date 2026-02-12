@@ -35,7 +35,7 @@ except ImportError:
 
 # 헬스 서버
 try:
-    from health import start_health_server
+    from openclaw.health import start_health_server
     _health_available = True
 except ImportError:
     _health_available = False
@@ -72,7 +72,7 @@ SERVICES = {
         "daemonizable": True,
     },
     "dashboard": {
-        "script": "dashboard.py",
+        "script": "openclaw/dashboard_server.py",
         "desc": "웹 대시보드",
         "daemonizable": True,
     },

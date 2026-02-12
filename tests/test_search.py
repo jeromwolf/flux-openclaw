@@ -5,8 +5,8 @@ import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from search import ConversationSearch, TagManager, SearchResult
-from conversation_store import ConversationStore
+from openclaw.search import ConversationSearch, TagManager, SearchResult
+from openclaw.conversation_store import ConversationStore
 
 
 @pytest.fixture

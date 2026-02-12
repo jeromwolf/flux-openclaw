@@ -30,11 +30,11 @@ from core import (
     load_usage,
     load_system_prompt,
 )
-from conversation_engine import ConversationEngine
+from openclaw.conversation_engine import ConversationEngine
 
 # llm_provider 지원 (없으면 직접 anthropic 사용)
 try:
-    from llm_provider import get_provider
+    from openclaw.llm_provider import get_provider
 except ImportError:
     get_provider = None
 

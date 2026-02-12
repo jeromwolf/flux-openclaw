@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch, call
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from llm_provider import TextBlock, ToolUseBlock, Usage, LLMResponse
-from conversation_engine import ConversationEngine, TurnResult
+from openclaw.llm_provider import TextBlock, ToolUseBlock, Usage, LLMResponse
+from openclaw.conversation_engine import ConversationEngine, TurnResult
 
 
 # ============================================================
@@ -254,9 +254,9 @@ class TestExtractText:
 class TestRunTurn:
     """run_turn 동기 메서드 테스트"""
 
-    @patch("conversation_engine.increment_usage")
-    @patch("conversation_engine.retry_llm_call", side_effect=lambda fn, **kw: fn())
-    @patch("conversation_engine.get_config")
+    @patch("openclaw.conversation_engine.increment_usage")
+    @patch("openclaw.conversation_engine.retry_llm_call", side_effect=lambda fn, **kw: fn())
+    @patch("openclaw.conversation_engine.get_config")
     def test_normal_text_response(self, mock_config, mock_retry, mock_usage):
         """일반 텍스트 응답"""
         mock_config.return_value = _make_cfg()
@@ -277,10 +277,10 @@ class TestRunTurn:
         assert len(messages) == 2
         assert messages[1]["role"] == "assistant"
 
-    @patch("conversation_engine.with_timeout", side_effect=lambda fn, **kw: fn(**{k: v for k, v in kw.items() if k != "timeout_seconds"}))
-    @patch("conversation_engine.increment_usage")
-    @patch("conversation_engine.retry_llm_call", side_effect=lambda fn, **kw: fn())
-    @patch("conversation_engine.get_config")
+    @patch("openclaw.conversation_engine.with_timeout", side_effect=lambda fn, **kw: fn(**{k: v for k, v in kw.items() if k != "timeout_seconds"}))
+    @patch("openclaw.conversation_engine.increment_usage")
+    @patch("openclaw.conversation_engine.retry_llm_call", side_effect=lambda fn, **kw: fn())
+    @patch("openclaw.conversation_engine.get_config")
     def test_tool_use_single_round(self, mock_config, mock_retry, mock_usage, mock_timeout):
         """단일 도구 사용 라운드"""
         mock_config.return_value = _make_cfg()
@@ -302,10 +302,10 @@ class TestRunTurn:
         assert result.input_tokens == 20  # 10 + 10
         assert result.output_tokens == 10  # 5 + 5
 
-    @patch("conversation_engine.with_timeout", side_effect=lambda fn, **kw: fn(**{k: v for k, v in kw.items() if k != "timeout_seconds"}))
-    @patch("conversation_engine.increment_usage")
-    @patch("conversation_engine.retry_llm_call", side_effect=lambda fn, **kw: fn())
-    @patch("conversation_engine.get_config")
+    @patch("openclaw.conversation_engine.with_timeout", side_effect=lambda fn, **kw: fn(**{k: v for k, v in kw.items() if k != "timeout_seconds"}))
+    @patch("openclaw.conversation_engine.increment_usage")
+    @patch("openclaw.conversation_engine.retry_llm_call", side_effect=lambda fn, **kw: fn())
+    @patch("openclaw.conversation_engine.get_config")
     def test_restricted_tool_blocked(self, mock_config, mock_retry, mock_usage, mock_timeout):
         """제한된 도구가 차단됨"""
         mock_config.return_value = _make_cfg()
@@ -328,9 +328,9 @@ class TestRunTurn:
         assert any("보안 제한" in tr["content"] for tr in tool_results)
         assert any(tr.get("is_error") for tr in tool_results)
 
-    @patch("conversation_engine.increment_usage")
-    @patch("conversation_engine.retry_llm_call", side_effect=lambda fn, **kw: fn())
-    @patch("conversation_engine.get_config")
+    @patch("openclaw.conversation_engine.increment_usage")
+    @patch("openclaw.conversation_engine.retry_llm_call", side_effect=lambda fn, **kw: fn())
+    @patch("openclaw.conversation_engine.get_config")
     def test_unknown_tool(self, mock_config, mock_retry, mock_usage):
         """알 수 없는 도구 처리"""
         mock_config.return_value = _make_cfg()
@@ -352,9 +352,9 @@ class TestRunTurn:
         tool_results = user_msg["content"]
         assert any("알 수 없는 도구" in tr["content"] for tr in tool_results)
 
-    @patch("conversation_engine.increment_usage")
-    @patch("conversation_engine.retry_llm_call", side_effect=lambda fn, **kw: fn())
-    @patch("conversation_engine.get_config")
+    @patch("openclaw.conversation_engine.increment_usage")
+    @patch("openclaw.conversation_engine.retry_llm_call", side_effect=lambda fn, **kw: fn())
+    @patch("openclaw.conversation_engine.get_config")
     def test_max_tokens_with_tool_use(self, mock_config, mock_retry, mock_usage):
         """max_tokens + tool_use 블록: 에러 결과 후 계속"""
         mock_config.return_value = _make_cfg()
@@ -373,9 +373,9 @@ class TestRunTurn:
         assert result.text == "Retried"
         assert result.tool_rounds == 1
 
-    @patch("conversation_engine.increment_usage")
-    @patch("conversation_engine.retry_llm_call", side_effect=lambda fn, **kw: fn())
-    @patch("conversation_engine.get_config")
+    @patch("openclaw.conversation_engine.increment_usage")
+    @patch("openclaw.conversation_engine.retry_llm_call", side_effect=lambda fn, **kw: fn())
+    @patch("openclaw.conversation_engine.get_config")
     def test_max_tokens_without_tool_use(self, mock_config, mock_retry, mock_usage):
         """max_tokens + 텍스트만: 바로 중단"""
         mock_config.return_value = _make_cfg()
@@ -394,9 +394,9 @@ class TestRunTurn:
         assert result.text == ""  # max_tokens -> break, no extract
         assert result.tool_rounds == 0
 
-    @patch("conversation_engine.increment_usage")
-    @patch("conversation_engine.retry_llm_call", side_effect=lambda fn, **kw: fn())
-    @patch("conversation_engine.get_config")
+    @patch("openclaw.conversation_engine.increment_usage")
+    @patch("openclaw.conversation_engine.retry_llm_call", side_effect=lambda fn, **kw: fn())
+    @patch("openclaw.conversation_engine.get_config")
     def test_tool_round_limit(self, mock_config, mock_retry, mock_usage):
         """도구 라운드 제한 초과"""
         cfg = _make_cfg()
@@ -414,16 +414,16 @@ class TestRunTurn:
 
         messages = [{"role": "user", "content": "loop"}]
 
-        with patch("conversation_engine.with_timeout", side_effect=lambda fn, **kw: fn(**{k: v for k, v in kw.items() if k != "timeout_seconds"})):
+        with patch("openclaw.conversation_engine.with_timeout", side_effect=lambda fn, **kw: fn(**{k: v for k, v in kw.items() if k != "timeout_seconds"})):
             result = engine.run_turn(messages)
 
         assert result.tool_rounds == 2
         assert result.error is not None
         assert "2" in result.error
 
-    @patch("conversation_engine.increment_usage")
-    @patch("conversation_engine.retry_llm_call", side_effect=lambda fn, **kw: fn())
-    @patch("conversation_engine.get_config")
+    @patch("openclaw.conversation_engine.increment_usage")
+    @patch("openclaw.conversation_engine.retry_llm_call", side_effect=lambda fn, **kw: fn())
+    @patch("openclaw.conversation_engine.get_config")
     def test_llm_exception(self, mock_config, mock_retry, mock_usage):
         """LLM 호출 예외 처리"""
         mock_config.return_value = _make_cfg()
@@ -437,10 +437,10 @@ class TestRunTurn:
 
         assert result.error == "요청 처리 중 오류가 발생했습니다."
 
-    @patch("conversation_engine.with_timeout", side_effect=lambda fn, **kw: (_ for _ in ()).throw(__import__("resilience")._TimeoutError("timeout")))
-    @patch("conversation_engine.increment_usage")
-    @patch("conversation_engine.retry_llm_call", side_effect=lambda fn, **kw: fn())
-    @patch("conversation_engine.get_config")
+    @patch("openclaw.conversation_engine.with_timeout", side_effect=lambda fn, **kw: (_ for _ in ()).throw(__import__("openclaw.resilience", fromlist=["_TimeoutError"])._TimeoutError("timeout")))
+    @patch("openclaw.conversation_engine.increment_usage")
+    @patch("openclaw.conversation_engine.retry_llm_call", side_effect=lambda fn, **kw: fn())
+    @patch("openclaw.conversation_engine.get_config")
     def test_tool_timeout(self, mock_config, mock_retry, mock_usage, mock_timeout):
         """도구 실행 타임아웃"""
         mock_config.return_value = _make_cfg()
@@ -461,10 +461,10 @@ class TestRunTurn:
         tool_results = user_msg["content"]
         assert any("타임아웃" in tr["content"] for tr in tool_results)
 
-    @patch("conversation_engine.with_timeout", side_effect=lambda fn, **kw: fn(**{k: v for k, v in kw.items() if k != "timeout_seconds"}))
-    @patch("conversation_engine.increment_usage")
-    @patch("conversation_engine.retry_llm_call", side_effect=lambda fn, **kw: fn())
-    @patch("conversation_engine.get_config")
+    @patch("openclaw.conversation_engine.with_timeout", side_effect=lambda fn, **kw: fn(**{k: v for k, v in kw.items() if k != "timeout_seconds"}))
+    @patch("openclaw.conversation_engine.increment_usage")
+    @patch("openclaw.conversation_engine.retry_llm_call", side_effect=lambda fn, **kw: fn())
+    @patch("openclaw.conversation_engine.get_config")
     def test_callbacks_called(self, mock_config, mock_retry, mock_usage, mock_timeout):
         """콜백 호출 확인"""
         mock_config.return_value = _make_cfg()
@@ -495,9 +495,9 @@ class TestRunTurn:
         on_tool_start.assert_called_once_with("tool_a", {"x": "val"})
         on_tool_end.assert_called_once()
 
-    @patch("conversation_engine.increment_usage")
-    @patch("conversation_engine.retry_llm_call", side_effect=lambda fn, **kw: fn())
-    @patch("conversation_engine.get_config")
+    @patch("openclaw.conversation_engine.increment_usage")
+    @patch("openclaw.conversation_engine.retry_llm_call", side_effect=lambda fn, **kw: fn())
+    @patch("openclaw.conversation_engine.get_config")
     def test_usage_accumulated(self, mock_config, mock_retry, mock_usage):
         """토큰 사용량 누적"""
         mock_config.return_value = _make_cfg()
@@ -512,10 +512,10 @@ class TestRunTurn:
         assert result.output_tokens == 50
         mock_usage.assert_called_once_with(100, 50, cost_usd=0.0)
 
-    @patch("conversation_engine.with_timeout", side_effect=lambda fn, **kw: (_ for _ in ()).throw(ValueError("tool crash")))
-    @patch("conversation_engine.increment_usage")
-    @patch("conversation_engine.retry_llm_call", side_effect=lambda fn, **kw: fn())
-    @patch("conversation_engine.get_config")
+    @patch("openclaw.conversation_engine.with_timeout", side_effect=lambda fn, **kw: (_ for _ in ()).throw(ValueError("tool crash")))
+    @patch("openclaw.conversation_engine.increment_usage")
+    @patch("openclaw.conversation_engine.retry_llm_call", side_effect=lambda fn, **kw: fn())
+    @patch("openclaw.conversation_engine.get_config")
     def test_tool_generic_exception(self, mock_config, mock_retry, mock_usage, mock_timeout):
         """도구 실행 일반 예외 처리"""
         mock_config.return_value = _make_cfg()
@@ -543,9 +543,9 @@ class TestRunTurn:
 class TestRunTurnAsync:
     """run_turn_async 비동기 메서드 테스트"""
 
-    @patch("conversation_engine.increment_usage")
-    @patch("conversation_engine.retry_llm_call_async")
-    @patch("conversation_engine.get_config")
+    @patch("openclaw.conversation_engine.increment_usage")
+    @patch("openclaw.conversation_engine.retry_llm_call_async")
+    @patch("openclaw.conversation_engine.get_config")
     def test_async_normal_response(self, mock_config, mock_retry_async, mock_usage):
         """비동기 일반 텍스트 응답"""
         mock_config.return_value = _make_cfg()
@@ -563,10 +563,10 @@ class TestRunTurnAsync:
         assert result.error is None
         assert result.tool_rounds == 0
 
-    @patch("conversation_engine.with_timeout_async")
-    @patch("conversation_engine.increment_usage")
-    @patch("conversation_engine.retry_llm_call_async")
-    @patch("conversation_engine.get_config")
+    @patch("openclaw.conversation_engine.with_timeout_async")
+    @patch("openclaw.conversation_engine.increment_usage")
+    @patch("openclaw.conversation_engine.retry_llm_call_async")
+    @patch("openclaw.conversation_engine.get_config")
     def test_async_tool_use(self, mock_config, mock_retry_async, mock_usage, mock_timeout_async):
         """비동기 도구 사용 라운드"""
         mock_config.return_value = _make_cfg()
@@ -597,9 +597,9 @@ class TestRunTurnAsync:
         assert result.text == "Async done"
         assert result.tool_rounds == 1
 
-    @patch("conversation_engine.increment_usage")
-    @patch("conversation_engine.retry_llm_call_async")
-    @patch("conversation_engine.get_config")
+    @patch("openclaw.conversation_engine.increment_usage")
+    @patch("openclaw.conversation_engine.retry_llm_call_async")
+    @patch("openclaw.conversation_engine.get_config")
     def test_async_llm_exception(self, mock_config, mock_retry_async, mock_usage):
         """비동기 LLM 예외 처리"""
         mock_config.return_value = _make_cfg()
@@ -614,10 +614,10 @@ class TestRunTurnAsync:
 
         assert result.error == "요청 처리 중 오류가 발생했습니다."
 
-    @patch("conversation_engine.with_timeout_async")
-    @patch("conversation_engine.increment_usage")
-    @patch("conversation_engine.retry_llm_call_async")
-    @patch("conversation_engine.get_config")
+    @patch("openclaw.conversation_engine.with_timeout_async")
+    @patch("openclaw.conversation_engine.increment_usage")
+    @patch("openclaw.conversation_engine.retry_llm_call_async")
+    @patch("openclaw.conversation_engine.get_config")
     def test_async_restricted_tool(self, mock_config, mock_retry_async, mock_usage, mock_timeout_async):
         """비동기 제한된 도구 차단"""
         mock_config.return_value = _make_cfg()

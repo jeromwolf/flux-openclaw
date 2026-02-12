@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from rate_limiter import HTTPRateLimiter
+from openclaw.rate_limiter import HTTPRateLimiter
 
 
 # ---------------------------------------------------------------------------
@@ -123,7 +123,7 @@ class TestRateLimiterSlidingWindow:
         assert allowed is False
 
         # Advance time beyond the window
-        with patch("rate_limiter.time") as mock_time:
+        with patch("openclaw.rate_limiter.time") as mock_time:
             mock_time.time.return_value = time.time() + 11
             allowed, headers = rl.check("user1")
             assert allowed is True

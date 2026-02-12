@@ -13,7 +13,7 @@ from pathlib import Path
 # plugin_sdk 모듈의 함수들 임포트
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from plugin_sdk import validate_name, cmd_new, cmd_check, cmd_test, cmd_package
+from openclaw.plugin_sdk import validate_name, cmd_new, cmd_check, cmd_test, cmd_package
 
 
 # ============================================================================
