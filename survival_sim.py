@@ -54,11 +54,28 @@ class TradeResult:
 
 
 class FairValueEstimator:
-    """간단한 공정 가치 추정 엔진
+    """선구안(Selective Eye) 공정 가치 추정 엔진
 
-    실제 구현에서는 더 정교한 모델(Claude API 호출)을 사용하지만,
-    시뮬레이션에서는 간단한 휴리스틱을 사용합니다.
+    핵심 철학: "타수가 항상 공을 칠 필요 없다. 승률이 높을 때만 친다."
+
+    필터링 기준:
+    1. 극단적 가격 제외 (0.05~0.95 범위만)
+    2. 충분한 유동성 필요 ($5,000+)
+    3. 높은 엣지만 (12%+)
+    4. 높은 신뢰도만 (0.5+)
+    5. 추정 승률 60%+ 일 때만 거래
     """
+
+    # === 선구안 전략 파라미터 ===
+    MIN_EDGE = 0.06              # 최소 엣지 6% (선구안 - 충분히 선택적)
+    MIN_CONFIDENCE = 0.3         # 최소 신뢰도 0.3
+    MIN_WIN_PROB = 0.52          # 최소 추정 승률 52% (50% 이상에서만)
+    MIN_PRICE = 0.01             # 극단적 저가 제외 (1% 미만)
+    MAX_PRICE = 0.99             # 극단적 고가 제외 (99% 초과)
+    MIN_LIQUIDITY = 2000         # 최소 유동성 $2,000 (스캔 필터와 동일)
+    MAX_TRADES_PER_CYCLE = 2     # 사이클당 최대 2건
+    KELLY_MAX_FRACTION = 0.06    # Kelly 최대 6% (Argona0x와 동일)
+    MAX_BET_FRACTION = 0.10      # 최대 잔액의 10%
 
     def __init__(self):
         self.api_cost_per_call = 0.08  # Claude API 호출당 예상 비용
@@ -66,82 +83,138 @@ class FairValueEstimator:
     def estimate_probability(self, market: Dict[str, Any]) -> Tuple[float, float]:
         """시장 확률 추정
 
-        실제로는 Claude를 사용하여 뉴스, 컨텍스트 등을 분석하지만,
-        시뮬레이션에서는 시장 가격에 노이즈를 추가하여 추정합니다.
-
         Returns:
             (estimated_yes_prob, confidence) 튜플
         """
-        # 시장 가격 (암묵적 확률)
         market_yes_prob = market['yes_probability'] / 100.0
 
-        # 시뮬레이션: 실제 확률은 시장 가격 ± 10% 노이즈
-        # (실제 모델의 오류/편향을 시뮬레이션)
-        noise = random.gauss(0, 0.05)  # 평균 0, 표준편차 5%
+        # 시뮬레이션: 시장 가격 ± 노이즈 (Claude 추정 편차 시뮬레이션)
+        # 실제 Claude는 뉴스/데이터 기반으로 시장과 다른 추정을 할 수 있음
+        noise = random.gauss(0, 0.10)
         estimated_prob = max(0.01, min(0.99, market_yes_prob + noise))
 
-        # 신뢰도 (0-1): 거래량과 유동성이 높을수록 신뢰도 증가
-        volume_score = min(1.0, market['volume_24h'] / 50000)
-        liquidity_score = min(1.0, market['liquidity'] / 10000)
-        confidence = (volume_score + liquidity_score) / 2
+        # 신뢰도: 거래량 + 유동성 + 가격 안정성 종합 평가
+        volume_score = min(1.0, market['volume_24h'] / 100000)   # 10만$ 기준
+        liquidity_score = min(1.0, market['liquidity'] / 20000)  # 2만$ 기준
+
+        # 가격 안정성: 0.2~0.8 범위에서 가장 높음 (극단 가격은 신뢰도 하락)
+        price_stability = 1.0 - 2.0 * abs(market_yes_prob - 0.5)
+        price_stability = max(0.1, price_stability)
+
+        confidence = (volume_score * 0.4 + liquidity_score * 0.3 + price_stability * 0.3)
 
         return estimated_prob, confidence
+
+    def _passes_quality_filter(self, market: Dict[str, Any]) -> bool:
+        """시장 품질 필터 - 거래할 가치가 있는 시장인가?"""
+        yes_price = market['yes_price']
+        no_price = market['no_price']
+
+        # 극단적 가격 제외 (너무 확실하거나 너무 불확실한 시장은 엣지가 없다)
+        if yes_price < self.MIN_PRICE or yes_price > self.MAX_PRICE:
+            return False
+
+        # 유동성 부족 시장 제외
+        if market['liquidity'] < self.MIN_LIQUIDITY:
+            return False
+
+        # YES + NO 가격 합이 비정상인 경우 제외 (스프레드 너무 넓음)
+        spread = abs((yes_price + no_price) - 1.0)
+        if spread > 0.15:  # 15% 이상 스프레드는 비정상
+            return False
+
+        return True
 
     def find_opportunities(
         self,
         markets: List[Dict[str, Any]],
-        min_edge: float = 0.05,
-        min_confidence: float = 0.3
+        min_edge: float = None,
+        min_confidence: float = None
     ) -> List[Dict[str, Any]]:
-        """잘못 가격이 책정된 기회 찾기
+        """선구안 전략: 승률 높은 기회만 엄선
 
-        Args:
-            markets: 시장 데이터 리스트
-            min_edge: 최소 엣지 (추정 확률 - 시장 가격)
-            min_confidence: 최소 신뢰도
-
-        Returns:
-            기회 리스트 (엣지가 큰 순서)
+        "100개 마켓을 스캔해서 1~2개만 거래한다"
         """
+        min_edge = min_edge or self.MIN_EDGE
+        min_confidence = min_confidence or self.MIN_CONFIDENCE
+
         opportunities = []
+        skipped_quality = 0
+        skipped_confidence = 0
+        skipped_edge = 0
+        skipped_winprob = 0
 
         for market in markets:
+            # 1단계: 품질 필터 (쓰레기 시장 제외)
+            if not self._passes_quality_filter(market):
+                skipped_quality += 1
+                continue
+
+            # 2단계: 확률 추정
             est_yes_prob, confidence = self.estimate_probability(market)
 
+            # 3단계: 신뢰도 필터
             if confidence < min_confidence:
+                skipped_confidence += 1
                 continue
 
             market_yes_price = market['yes_price']
             market_no_price = market['no_price']
 
-            # YES 쪽 엣지 계산
+            # YES 쪽 엣지
             yes_edge = est_yes_prob - market_yes_price
-
-            # NO 쪽 엣지 계산 (반대 확률)
+            # NO 쪽 엣지
             no_edge = (1 - est_yes_prob) - market_no_price
 
-            # 최고 엣지 선택
-            if yes_edge > min_edge and yes_edge > no_edge:
-                opportunities.append({
-                    'market': market,
-                    'side': 'YES',
-                    'edge': yes_edge,
-                    'estimated_prob': est_yes_prob,
-                    'market_price': market_yes_price,
-                    'confidence': confidence
-                })
+            # 최적 사이드 결정
+            if yes_edge > no_edge and yes_edge > min_edge:
+                side = 'YES'
+                edge = yes_edge
+                est_prob = est_yes_prob
+                market_price = market_yes_price
             elif no_edge > min_edge:
-                opportunities.append({
-                    'market': market,
-                    'side': 'NO',
-                    'edge': no_edge,
-                    'estimated_prob': 1 - est_yes_prob,
-                    'market_price': market_no_price,
-                    'confidence': confidence
-                })
+                side = 'NO'
+                edge = no_edge
+                est_prob = 1 - est_yes_prob
+                market_price = market_no_price
+            else:
+                skipped_edge += 1
+                continue
 
-        # 엣지가 큰 순서로 정렬
-        opportunities.sort(key=lambda x: x['edge'] * x['confidence'], reverse=True)
+            # 4단계: 최소 승률 필터 (핵심!)
+            # "승률 60% 미만이면 안 친다"
+            if est_prob < self.MIN_WIN_PROB:
+                skipped_winprob += 1
+                continue
+
+            # 5단계: 기대값(EV) 계산 - 양의 EV만
+            odds = 1.0 / market_price
+            expected_value = est_prob * (odds - 1) - (1 - est_prob)
+            if expected_value <= 0:
+                continue
+
+            opportunities.append({
+                'market': market,
+                'side': side,
+                'edge': edge,
+                'estimated_prob': est_prob,
+                'market_price': market_price,
+                'confidence': confidence,
+                'expected_value': expected_value
+            })
+
+        # EV × 신뢰도로 정렬 (가장 좋은 기회 우선)
+        opportunities.sort(
+            key=lambda x: x['expected_value'] * x['confidence'],
+            reverse=True
+        )
+
+        logger.info(
+            f"필터 결과: {len(markets)}개 중 "
+            f"품질탈락={skipped_quality}, 신뢰도탈락={skipped_confidence}, "
+            f"엣지부족={skipped_edge}, 승률부족={skipped_winprob} → "
+            f"{len(opportunities)}개 통과"
+        )
 
         return opportunities
 
@@ -150,37 +223,33 @@ class FairValueEstimator:
         balance: float,
         edge: float,
         price: float,
-        max_fraction: float = 0.1
+        max_fraction: float = None
     ) -> float:
-        """Kelly criterion 기반 포지션 크기 계산
+        """보수적 Kelly criterion - Half Kelly 사용
 
-        Args:
-            balance: 현재 잔액
-            edge: 엣지 (estimated_prob - market_price)
-            price: 시장 가격
-            max_fraction: 최대 Kelly 비율 (기본 10%, 보수적)
-
-        Returns:
-            베팅 금액 (USD)
+        Full Kelly는 이론적 최적이지만 변동성이 크다.
+        Half Kelly = Kelly / 2 → 수익 75% 유지, 변동성 50% 감소
         """
+        max_fraction = max_fraction or self.KELLY_MAX_FRACTION
+
         if edge <= 0 or price <= 0 or price >= 1:
             return 0.0
 
-        # Kelly fraction = edge / (odds - 1)
-        # odds = 1 / price (예: 가격 0.7 -> odds 1.43)
         odds = 1.0 / price
         kelly_fraction = edge / (odds - 1)
 
-        # 보수적으로 제한
+        # Half Kelly 적용 (보수적)
+        kelly_fraction = kelly_fraction * 0.5
+
+        # 최대 비율 제한
         kelly_fraction = min(kelly_fraction, max_fraction)
         kelly_fraction = max(0, kelly_fraction)
 
-        # 베팅 금액 계산
         bet_amount = balance * kelly_fraction
 
         # 최소/최대 제한
-        min_bet = 1.0  # 최소 $1
-        max_bet = balance * 0.2  # 최대 잔액의 20%
+        min_bet = 1.0
+        max_bet = balance * self.MAX_BET_FRACTION
 
         return max(min_bet, min(bet_amount, max_bet))
 
@@ -189,10 +258,14 @@ class SurvivalSimulator:
     """생존 모드 시뮬레이터
 
     가상 자금으로 트레이딩을 시뮬레이션하고 P&L을 추적합니다.
+    수익의 50%는 자동으로 적립금(reserve)으로 분리하여 보호합니다.
     """
 
     # 최소 잔액 - 이 이하로 내려가면 트레이딩 중단
     MIN_BALANCE = 10.0
+
+    # 수익 적립 비율 (50% = 수익의 절반을 적립)
+    PROFIT_RESERVE_RATIO = 0.50
 
     def __init__(self, initial_balance: float = 50.0, db_path: str = "data/survival_sim.db"):
         """시뮬레이터 초기화
@@ -271,6 +344,17 @@ class SurvivalSimulator:
                         trades_placed INTEGER,
                         api_cost_estimate REAL,
                         cycle_duration_seconds REAL
+                    )
+                """)
+
+                # 적립금(reserve) 테이블
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS sim_reserve (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        timestamp TEXT NOT NULL,
+                        amount REAL NOT NULL,
+                        total_reserve REAL NOT NULL,
+                        source TEXT NOT NULL
                     )
                 """)
 
@@ -409,9 +493,34 @@ class SurvivalSimulator:
                         payout = amount / entry_price  # shares
                         pnl = payout - amount
                         status = 'won'
-                        current_balance += payout
 
-                        logger.info(f"✅ 거래 승리: {side} +${pnl:.2f} ({question[:50]})")
+                        # 수익의 50%를 적립금으로 분리
+                        if pnl > 0:
+                            reserve_amount = pnl * self.PROFIT_RESERVE_RATIO
+                            actual_payout = payout - reserve_amount
+                            current_balance += actual_payout
+
+                            # 적립금 기록
+                            cursor2 = conn.execute(
+                                "SELECT COALESCE(MAX(total_reserve), 0) FROM sim_reserve"
+                            )
+                            current_reserve = cursor2.fetchone()[0]
+                            new_reserve_total = current_reserve + reserve_amount
+
+                            conn.execute(
+                                "INSERT INTO sim_reserve (timestamp, amount, total_reserve, source) VALUES (?, ?, ?, ?)",
+                                (datetime.now().isoformat(), reserve_amount, new_reserve_total,
+                                 f"거래 #{trade_id} 수익 50% 적립")
+                            )
+
+                            logger.info(
+                                f"✅ 거래 승리: {side} +${pnl:.2f} "
+                                f"(운용: +${pnl - reserve_amount:.2f}, 적립: +${reserve_amount:.2f}) "
+                                f"({question[:50]})"
+                            )
+                        else:
+                            current_balance += payout
+                            logger.info(f"✅ 거래 승리: {side} +${pnl:.2f} ({question[:50]})")
                     else:
                         # 패배: 진입 금액 손실
                         pnl = -amount
@@ -474,30 +583,26 @@ class SurvivalSimulator:
             logger.error(f"시장 스캔 실패: {e}", exc_info=True)
             return
 
-        # 2. 기회 찾기
-        opportunities = self.estimator.find_opportunities(
-            markets,
-            min_edge=0.05,  # 최소 5% 엣지
-            min_confidence=0.3
-        )
-        logger.info(f"{len(opportunities)}개 기회 발견")
+        # 2. 선구안 전략: 승률 높은 기회만 엄선
+        opportunities = self.estimator.find_opportunities(markets)
+        logger.info(f"{len(opportunities)}개 고품질 기회 발견")
 
-        # API 비용 추정
-        # 시뮬레이션 모드: Claude 호출 없이 노이즈 기반 추정 → 사이클당 고정 $0.10
-        # 실전 모드: 마켓당 Claude 호출 → len(markets) * $0.08
-        api_cost = 0.10  # 시뮬레이션 모드 고정 비용
+        # API 비용 추정 (시뮬레이션 모드)
+        api_cost = 0.10
 
-        # 3. 상위 기회에 거래
+        # 3. 상위 기회에만 거래 (선구안: 사이클당 최대 2건)
         trades_placed = 0
-        max_trades_per_cycle = 3  # 사이클당 최대 3개 거래
+        max_trades = FairValueEstimator.MAX_TRADES_PER_CYCLE
 
-        for opp in opportunities[:max_trades_per_cycle]:
-            # Kelly 사이징
+        if not opportunities:
+            logger.info("⏸️  이번 사이클 패스 - 충분한 기회 없음 (선구안 전략)")
+
+        for opp in opportunities[:max_trades]:
+            # Half Kelly 사이징
             bet_amount = self.estimator.calculate_kelly_size(
                 balance=current_balance,
                 edge=opp['edge'],
-                price=opp['market_price'],
-                max_fraction=0.1  # 보수적
+                price=opp['market_price']
             )
 
             if bet_amount < 1.0:
@@ -582,9 +687,9 @@ class SurvivalSimulator:
                     yes_price = float(outcome_prices[0])
                     no_price = float(outcome_prices[1])
 
-                    # 최소 유동성 필터 ($1000)
+                    # 최소 유동성 필터 ($2000)
                     liquidity = float(market.get("liquidity", 0))
-                    if liquidity < 1000:
+                    if liquidity < 2000:
                         continue
 
                     markets.append({
@@ -684,6 +789,15 @@ class SurvivalSimulator:
 
                 open_trades = total_trades - won_trades - lost_trades
 
+                # 적립금 총액
+                cursor = conn.execute(
+                    "SELECT COALESCE(MAX(total_reserve), 0) FROM sim_reserve"
+                )
+                total_reserve = cursor.fetchone()[0]
+
+                # 총 자산 = 운용 잔액 + 적립금
+                total_assets = current_balance + total_reserve
+
                 return {
                     'balance': current_balance,
                     'initial_balance': initial_balance,
@@ -700,7 +814,9 @@ class SurvivalSimulator:
                     'alive': current_balance > self.MIN_BALANCE,
                     'min_balance': self.MIN_BALANCE,
                     'uptime': uptime,
-                    'last_cycle': last_cycle_time
+                    'last_cycle': last_cycle_time,
+                    'reserve': total_reserve,
+                    'total_assets': total_assets
                 }
 
             finally:
@@ -717,8 +833,12 @@ class SurvivalSimulator:
         print("\n" + "="*55)
         print("            SURVIVAL MODE STATUS")
         print("="*55)
-        print(f"  Balance:      ${status['balance']:.2f} (started: ${status['initial_balance']:.2f})")
+        print(f"  Balance:      ${status['balance']:.2f} (운용 잔액)")
+        print(f"  Reserve:      ${status['reserve']:.2f} (적립금 - 수익의 50%)")
+        print(f"  Total Assets: ${status['total_assets']:.2f} (운용 + 적립)")
+        print(f"  Started:      ${status['initial_balance']:.2f}")
         print(f"  Min Balance:  ${status['min_balance']:.2f} (이하 시 트레이딩 중단)")
+        print("-"*55)
         print(f"  P&L:          ${status['pnl']:+.2f} ({status['pnl_pct']:+.1f}%)")
         print(f"  Trade P&L:    ${status['trade_pnl']:+.2f}")
         print(f"  API Cost:     ${status['api_cost']:.2f}")
@@ -729,7 +849,7 @@ class SurvivalSimulator:
         print(f"    Open:       {status['open_trades']} (${status['open_amount']:.2f} 베팅중)")
         print(f"  Win Rate:     {status['win_rate']:.1f}%")
         print("-"*55)
-        print(f"  Alive:        {'YES ✅' if status['alive'] else 'STOPPED 🛑'}")
+        print(f"  Alive:        {'YES' if status['alive'] else 'STOPPED'}")
         print(f"  Uptime:       {status['uptime']}")
         print(f"  Last Cycle:   {status['last_cycle']}")
         print("="*55 + "\n")
